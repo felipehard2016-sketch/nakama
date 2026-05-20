@@ -15,7 +15,11 @@ export async function getReviews(mediaId) {
     .eq('media_id', mediaId)
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    /* Tabela ainda não existe no Supabase — retorna vazio sem crashar */
+    console.warn('[Nakama] getReviews:', error.message);
+    return [];
+  }
   return data || [];
 }
 
@@ -45,7 +49,7 @@ export async function upsertReview({ userId, mediaId, title, body, score, isSpoi
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throw error; /* lança para o caller mostrar toast de erro */
   return data;
 }
 

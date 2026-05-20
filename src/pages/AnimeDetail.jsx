@@ -897,7 +897,7 @@ function TrailerEmbed({ trailer }) {
 
   return (
     <section style={{ marginTop: 40 }}>
-      <SectionTitle icon={Youtube}>Trailer</SectionTitle>
+      <SectionTitle icon={YoutubeIcon}>Trailer</SectionTitle>
       {show ? (
         <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: 14, overflow: 'hidden', background: '#000' }}>
           <iframe
@@ -1001,7 +1001,7 @@ function ThemesSection({ themes }) {
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                       title="Buscar no YouTube"
                     >
-                      <Youtube size={14} />
+                      <YoutubeIcon size={14} />
                     </a>
                   </div>
                 );

@@ -167,7 +167,8 @@ function toRow(userId, item) {
     favorited:      item.favorited    || false,
     progress:       item.progress     || 0,
     user_score:     item.userScore    ?? null,
-    rewatch_count:  item.rewatchCount || 0,
+    /* rewatch_count omitido até a coluna existir no Supabase
+       (migration: ALTER TABLE user_media_list ADD COLUMN rewatch_count INT DEFAULT 0) */
     added_at:       item.addedAt     ? new Date(item.addedAt).toISOString()   : new Date().toISOString(),
     updated_at:     item.updatedAt   ? new Date(item.updatedAt).toISOString() : new Date().toISOString(),
     title:          item.title        || null,
@@ -191,7 +192,7 @@ function fromRow(row) {
     favorited:     row.favorited,
     progress:      row.progress,
     userScore:     row.user_score    ?? null,
-    rewatchCount:  row.rewatch_count || 0,
+    rewatchCount:  row.rewatch_count  || 0, /* colunaopicional — 0 se não existir */
     addedAt:       row.added_at   ? new Date(row.added_at).getTime()   : null,
     updatedAt:     row.updated_at ? new Date(row.updated_at).getTime() : null,
     title:         row.title,
