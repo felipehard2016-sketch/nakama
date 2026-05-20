@@ -336,7 +336,7 @@ function RankingList({ title, icon: Icon, items, type }) {
       </div>
 
       {items.slice(0, 10).map((media, i) => {
-        const t = media.title.english || media.title.romaji;
+        const t = media.title?.english || media.title?.romaji || 'Sem título';
         const score = media.averageScore ? (media.averageScore / 10).toFixed(1) : '—';
         const rankColor = i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : 'var(--text-muted)';
 
