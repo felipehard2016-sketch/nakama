@@ -16,6 +16,7 @@ import Calendar        from './pages/Calendar';
 import Profile         from './pages/Profile';
 import Discover        from './pages/Discover';
 import StudioPage      from './pages/StudioPage';
+import Wrapped        from './pages/Wrapped';
 import Login           from './pages/Login';
 import Register        from './pages/Register';
 import ForgotPassword  from './pages/ForgotPassword';
@@ -62,6 +63,7 @@ export default function App() {
               <Route path="calendar"        element={<Calendar />} />
               <Route path="discover"        element={<Discover />} />
               <Route path="studio/:id"      element={<StudioPage />} />
+              <Route path="wrapped"         element={<Wrapped />} />
 
               {/* Protegidas — exigem login */}
               <Route path="my-list"   element={guard(<MyList />)} />

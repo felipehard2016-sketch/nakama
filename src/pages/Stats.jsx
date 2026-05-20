@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getAllMedia, getMonthlyActivity } from '../lib/storage';
 import { useNavigate } from 'react-router-dom';
 import { useTitle } from '../hooks/useTitle';
-import { BarChart2, Clock, Tv, BookOpen, Star, TrendingUp, Search, CalendarDays } from 'lucide-react';
+import { BarChart2, Clock, Tv, BookOpen, Star, TrendingUp, Search, CalendarDays, Sparkles } from 'lucide-react';
 
 const AVG_EP_MINUTES = 24;
 
@@ -201,10 +201,26 @@ export default function Stats() {
         background: 'linear-gradient(180deg, rgba(124,58,237,0.06) 0%, transparent 100%)',
         borderBottom: '1px solid var(--border)',
       }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em' }}>Estatísticas</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-          {inList.length} título{inList.length !== 1 ? 's' : ''} na lista · atualizado agora
-        </p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em' }}>Estatísticas</h1>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+              {inList.length} título{inList.length !== 1 ? 's' : ''} na lista · atualizado agora
+            </p>
+          </div>
+          <button onClick={() => navigate('/wrapped')} style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(244,114,182,0.12))',
+            border: '1px solid rgba(124,58,237,0.35)',
+            borderRadius: 11, padding: '10px 18px',
+            color: 'var(--purple-light)', fontSize: 13, fontWeight: 600,
+            transition: 'all 0.15s',
+          }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--purple)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(124,58,237,0.35)'}>
+            <Sparkles size={14} /> Ver Wrapped
+          </button>
+        </div>
       </div>
 
       <div style={{ padding: '32px 40px 60px' }}>
