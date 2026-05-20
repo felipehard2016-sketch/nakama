@@ -109,6 +109,7 @@ export const MEDIA_DETAILS = `
   query ($id: Int) {
     Media(id: $id) {
       id
+      idMal
       title { romaji english native }
       coverImage { large extraLarge color }
       bannerImage
@@ -220,6 +221,35 @@ export const TOP_MANGA = `
         format
         chapters
         status
+      }
+    }
+  }
+`;
+
+export const STUDIO_DETAILS = `
+  query ($id: Int) {
+    Studio(id: $id) {
+      id
+      name
+      isAnimationStudio
+      siteUrl
+      favourites
+      media(sort: START_DATE_DESC, isAdult: false, perPage: 50) {
+        nodes {
+          id
+          title { romaji english }
+          coverImage { large extraLarge color }
+          bannerImage
+          averageScore
+          episodes
+          chapters
+          format
+          season
+          seasonYear
+          status
+          genres
+          type
+        }
       }
     }
   }

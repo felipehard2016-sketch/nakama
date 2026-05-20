@@ -14,6 +14,8 @@ import Favorites       from './pages/Favorites';
 import Stats           from './pages/Stats';
 import Calendar        from './pages/Calendar';
 import Profile         from './pages/Profile';
+import Discover        from './pages/Discover';
+import StudioPage      from './pages/StudioPage';
 import Login           from './pages/Login';
 import Register        from './pages/Register';
 import ForgotPassword  from './pages/ForgotPassword';
@@ -58,6 +60,8 @@ export default function App() {
               <Route path="anime/:id"       element={<AnimeDetail />} />
               <Route path="character/:id"   element={<CharacterDetail />} />
               <Route path="calendar"        element={<Calendar />} />
+              <Route path="discover"        element={<Discover />} />
+              <Route path="studio/:id"      element={<StudioPage />} />
 
               {/* Protegidas — exigem login */}
               <Route path="my-list"   element={guard(<MyList />)} />

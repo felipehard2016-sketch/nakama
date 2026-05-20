@@ -1,11 +1,17 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { queryAniList, TRENDING_ANIME, SEASONAL_ANIME, TOP_ANIME, TOP_MANGA } from '../lib/anilist';
+import {
+  getUserTopGenres,
+  fetchRecommendationsByGenre,
+  getSavedMediaIds,
+  getRecommendationReason,
+} from '../lib/recommendations';
 import AnimeCard from '../components/ui/AnimeCard';
 import { useTitle } from '../hooks/useTitle';
 import {
   TrendingUp, Tv, ChevronLeft, ChevronRight,
-  Plus, Info, Star, BookOpen, Flame
+  Plus, Info, Star, BookOpen, Flame, Sparkles, Compass,
 } from 'lucide-react';
 
 function getCurrentSeason() {
@@ -396,36 +402,54 @@ function CarouselEmpty({ title, icon: Icon }) {
 /* ─── Home ─── */
 export default function Home() {
   useTitle('Home');
+  const navigate = useNavigate();
   const [trending, setTrending] = useState([]);
   const [seasonal, setSeasonal] = useState([]);
   const [topAnime, setTopAnime] = useState([]);
   const [topManga, setTopManga] = useState([]);
+  const [recItems, setRecItems] = useState([]);
+  const [recGenre, setRecGenre] = useState('');
   const [loading, setLoading]   = useState(true);
   const [apiError, setApiError] = useState(false);
 
+  /* Gêneros favoritos do usuário (síncronos, do localStorage) */
+  const topGenres = getUserTopGenres(3);
+  const hasRecs   = topGenres.length > 0;
+
   useEffect(() => {
     const year = new Date().getFullYear();
-    Promise.allSettled([
+    const genre = topGenres[0] || '';
+    if (genre) setRecGenre(genre);
+
+    const baseQueries = [
       queryAniList(TRENDING_ANIME, { page: 1, perPage: 20 }),
       queryAniList(SEASONAL_ANIME, { season: getCurrentSeason(), year, page: 1, perPage: 20 }),
       queryAniList(TOP_ANIME, { page: 1, perPage: 10 }),
       queryAniList(TOP_MANGA, { page: 1, perPage: 10 }),
-    ]).then(([t, s, ta, tm]) => {
+    ];
+
+    /* Busca recomendações em paralelo se usuário tem gêneros salvos */
+    const recQuery = hasRecs
+      ? fetchRecommendationsByGenre(genre, 16)
+      : Promise.resolve([]);
+
+    Promise.allSettled([...baseQueries, recQuery]).then(([t, s, ta, tm, rec]) => {
       if (t.status  === 'fulfilled') setTrending(t.value.Page.media);
       if (s.status  === 'fulfilled') setSeasonal(s.value.Page.media);
       if (ta.status === 'fulfilled') setTopAnime(ta.value.Page.media);
       if (tm.status === 'fulfilled') setTopManga(tm.value.Page.media);
+      if (rec.status === 'fulfilled' && Array.isArray(rec.value)) {
+        setRecItems(rec.value.slice(0, 16));
+      }
 
-      /* API offline se todas falharam */
       const allFailed = [t, s, ta, tm].every(r => r.status === 'rejected');
       if (allFailed) setApiError(true);
 
-      /* Log individual para debug */
       [['TRENDING', t], ['SEASONAL', s], ['TOP_ANIME', ta], ['TOP_MANGA', tm]].forEach(([name, r]) => {
-        if (r.status === 'rejected') console.warn(`[Nakama] ${name} falhou:`, r.reason?.message || r.reason);
+        if (r.status === 'rejected') console.warn(`[Nakama] ${name} falhou:`, r.reason?.message);
       });
     }).finally(() => setLoading(false));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return <Spinner />;
 
@@ -438,6 +462,16 @@ export default function Home() {
       <div style={{ paddingTop: 40 }}>
         {apiError && <ApiOfflineBanner />}
 
+        {/* ── Recomendado para você ── */}
+        {recItems.length > 0 && (
+          <Carousel
+            title={`Recomendado — ${recGenre}`}
+            icon={Sparkles}
+            items={recItems}
+            cardSize="md"
+          />
+        )}
+
         {trending.length > 0
           ? <Carousel title="Em Alta" icon={Flame} items={trending} cardSize="lg" />
           : <CarouselEmpty title="Em Alta" icon={Flame} />}
@@ -445,6 +479,45 @@ export default function Home() {
         {seasonal.length > 0
           ? <Carousel title="Temporada Atual" icon={Tv} items={seasonal} cardSize="md" />
           : <CarouselEmpty title="Temporada Atual" icon={Tv} />}
+
+        {/* ── Banner Descobrir ── */}
+        <div style={{ margin: '0 40px 48px' }}>
+          <div
+            onClick={() => navigate('/discover')}
+            style={{
+              background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(79,70,229,0.06))',
+              border: '1px solid rgba(124,58,237,0.25)',
+              borderRadius: 16, padding: '22px 28px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20,
+              cursor: 'pointer', transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(124,58,237,0.25)'}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.35)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Compass size={20} color="var(--purple-light)" />
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 3 }}>Descobrir</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  Anime do dia, gemas escondidas, clássicos e mais
+                </div>
+              </div>
+            </div>
+            <div style={{
+              fontSize: 12.5, fontWeight: 600, color: 'var(--purple-light)',
+              background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)',
+              borderRadius: 8, padding: '6px 14px', whiteSpace: 'nowrap',
+            }}>
+              Explorar →
+            </div>
+          </div>
+        </div>
 
         {/* Rankings */}
         {(topAnime.length > 0 || topManga.length > 0) && (

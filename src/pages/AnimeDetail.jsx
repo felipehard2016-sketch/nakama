@@ -6,12 +6,24 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useTitle } from '../hooks/useTitle';
 import { getWatchedEpisodes, markEpisode } from '../lib/episodeProgress';
+import { getJikanThemes, searchJikanByTitle } from '../lib/jikan';
+import { getReviews, getUserReview, upsertReview, deleteReview, voteReview } from '../lib/reviews';
 import {
   Star, ArrowLeft, Play, BookOpen, Heart, Plus, Check,
   ChevronDown, ChevronRight, ChevronLeft, Minus, Users,
   Clapperboard, Calendar, Clock, Tv, Hash, ExternalLink,
-  RefreshCw, Film, Lock,
+  RefreshCw, Film, Lock, Music, MessageSquare, ThumbsUp,
+  ThumbsDown, Pencil, Trash2, Eye, EyeOff,
 } from 'lucide-react';
+
+/* Inline YouTube icon (lucide não tem) */
+function YoutubeIcon({ size = 14, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} xmlns="http://www.w3.org/2000/svg">
+      <path d="M21.543 6.498C22 8.28 22 12 22 12s0 3.72-.457 5.502c-.254.985-.997 1.76-1.938 2.022C17.896 20 12 20 12 20s-5.893 0-7.605-.476c-.945-.266-1.687-1.04-1.938-2.022C2 15.72 2 12 2 12s0-3.72.457-5.502c.254-.985.997-1.76 1.938-2.022C6.107 4 12 4 12 4s5.896 0 7.605.476c.945.266 1.687 1.04 1.938 2.022zM10 15.5l6-3.5-6-3.5v7z"/>
+    </svg>
+  );
+}
 
 /* ─── Maps ─── */
 const STATUS_MAP = {
@@ -877,6 +889,416 @@ function WhereToWatch({ externalLinks }) {
   );
 }
 
+/* ─── Trailer YouTube ─── */
+function TrailerEmbed({ trailer }) {
+  const [show, setShow] = useState(false);
+  if (!trailer?.id || trailer.site !== 'Youtube') return null;
+
+  return (
+    <section style={{ marginTop: 40 }}>
+      <SectionTitle icon={Youtube}>Trailer</SectionTitle>
+      {show ? (
+        <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: 14, overflow: 'hidden', background: '#000' }}>
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${trailer.id}?autoplay=1&rel=0`}
+            title="Trailer"
+            allowFullScreen
+            allow="autoplay; encrypted-media"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+          />
+        </div>
+      ) : (
+        <div
+          onClick={() => setShow(true)}
+          style={{
+            position: 'relative', paddingBottom: '42%', borderRadius: 14, overflow: 'hidden',
+            background: '#0d0d14', cursor: 'pointer',
+            backgroundImage: `url(https://img.youtube.com/vi/${trailer.id}/maxresdefault.jpg)`,
+            backgroundSize: 'cover', backgroundPosition: 'center',
+          }}
+        >
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'background 0.2s',
+          }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.3)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.45)'}
+          >
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.95)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            }}>
+              <Play size={26} color="#111" fill="#111" style={{ marginLeft: 4 }} />
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ─── Temas (OP / ED) via Jikan ─── */
+function ThemesSection({ themes }) {
+  if (!themes || (!themes.openings?.length && !themes.endings?.length)) return null;
+
+  const clean = str => str.replace(/^\d+:\s*"?|"?\s*by\s*/gi, str => {
+    // Keep the "by" part for artist
+    if (str.toLowerCase().includes('by')) return ' — ';
+    return '';
+  }).replace(/\(eps?.*/i, '').trim();
+
+  return (
+    <section style={{ marginTop: 40 }}>
+      <SectionTitle icon={Music}>Músicas</SectionTitle>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        {[
+          { label: 'Abertura (OP)', items: themes.openings, color: '#a78bfa' },
+          { label: 'Encerramento (ED)', items: themes.endings, color: '#60a5fa' },
+        ].filter(g => g.items?.length).map(({ label, items, color }) => (
+          <div key={label} style={{
+            flex: 1, minWidth: 260,
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 12, overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '10px 16px', borderBottom: '1px solid var(--border)',
+              background: 'rgba(124,58,237,0.05)',
+              fontSize: 11.5, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.07em',
+            }}>{label}</div>
+            <div>
+              {items.slice(0, 6).map((theme, i) => {
+                const parts = theme.split(/\s+by\s+/i);
+                const songName = parts[0]?.replace(/^\d+:\s*"?|"?\s*$/g, '').trim();
+                const artist   = parts[1]?.replace(/\s*\(eps?.*/i, '').trim();
+                return (
+                  <div key={i} style={{
+                    padding: '9px 16px',
+                    borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0 }}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {songName || theme.replace(/^\d+:\s*/, '')}
+                      </p>
+                      {artist && (
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{artist}</p>
+                      )}
+                    </div>
+                    <a
+                      href={`https://www.youtube.com/results?search_query=${encodeURIComponent((songName || theme) + ' anime')}`}
+                      target="_blank" rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      style={{ color: 'var(--text-muted)', flexShrink: 0, transition: 'color 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                      title="Buscar no YouTube"
+                    >
+                      <Youtube size={14} />
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ─── Aba de Reviews ─── */
+function ReviewsTab({ mediaId, mediaCoverImage }) {
+  const { user } = useAuth();
+  const { showToast } = useToast();
+
+  const [reviews, setReviews]         = useState([]);
+  const [myReview, setMyReview]       = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [writing, setWriting]         = useState(false);
+  const [form, setForm]               = useState({ title: '', body: '', score: null, isSpoiler: false });
+  const [submitting, setSubmitting]   = useState(false);
+  const [spoilerOpen, setSpoilerOpen] = useState({});
+
+  const load = useCallback(async () => {
+    try {
+      const all = await getReviews(mediaId);
+      setReviews(all);
+      if (user?.id) {
+        const mine = all.find(r => r.user_id === user.id) || null;
+        setMyReview(mine);
+        if (mine) setForm({ title: mine.title || '', body: mine.body || '', score: mine.score, isSpoiler: mine.is_spoiler });
+      }
+    } catch (err) {
+      console.error('Reviews error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [mediaId, user?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (!form.body.trim()) return;
+    setSubmitting(true);
+    try {
+      await upsertReview({ userId: user.id, mediaId, ...form });
+      showToast(myReview ? 'Review atualizada!' : 'Review publicada! 🎉', 'success');
+      setWriting(false);
+      await load();
+    } catch (err) {
+      showToast(err.message || 'Erro ao publicar review', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!myReview) return;
+    if (!window.confirm('Excluir sua review?')) return;
+    try {
+      await deleteReview(myReview.id, user.id);
+      setMyReview(null);
+      setForm({ title: '', body: '', score: null, isSpoiler: false });
+      showToast('Review excluída', 'info');
+      await load();
+    } catch (err) {
+      showToast('Erro ao excluir', 'error');
+    }
+  };
+
+  const starVal = n => form.score === n ? null : n;
+
+  if (loading) return (
+    <div style={{ padding: '40px 0', textAlign: 'center' }}>
+      <div style={{ width: 36, height: 36, margin: '0 auto', border: '2px solid rgba(124,58,237,0.2)', borderTop: '2px solid var(--purple)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+    </div>
+  );
+
+  return (
+    <div>
+      {/* ── Minha review / formulário ── */}
+      {user ? (
+        <div style={{ marginBottom: 32 }}>
+          {!writing && !myReview ? (
+            <button
+              onClick={() => setWriting(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.3)',
+                borderRadius: 10, padding: '11px 20px',
+                fontSize: 13.5, fontWeight: 600, color: 'var(--purple-light)',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(124,58,237,0.2)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(124,58,237,0.1)'}
+            >
+              <Pencil size={15} /> Escrever review
+            </button>
+          ) : writing || myReview ? (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>
+                  {myReview && !writing ? 'Minha review' : (myReview ? 'Editar review' : 'Nova review')}
+                </span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {myReview && !writing && (
+                    <>
+                      <button onClick={() => setWriting(true)} style={{ fontSize: 12, color: 'var(--purple-light)', display: 'flex', alignItems: 'center', gap: 4 }}><Pencil size={12} /> Editar</button>
+                      <button onClick={handleDelete} style={{ fontSize: 12, color: '#f87171', display: 'flex', alignItems: 'center', gap: 4 }}><Trash2 size={12} /> Excluir</button>
+                    </>
+                  )}
+                  {writing && <button onClick={() => setWriting(false)} style={{ fontSize: 12, color: 'var(--text-muted)' }}>Cancelar</button>}
+                </div>
+              </div>
+
+              {writing ? (
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* Nota */}
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Nota (opcional)</label>
+                    <div style={{ display: 'flex', gap: 3 }}>
+                      {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                        <button type="button" key={n} onClick={() => setForm(f => ({ ...f, score: starVal(n) }))}
+                          style={{ width: 28, height: 28, borderRadius: 6, fontSize: 13, fontWeight: 700, border: `1px solid ${form.score >= n ? 'rgba(251,191,36,0.6)' : 'var(--border)'}`, background: form.score >= n ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.03)', color: form.score >= n ? '#fbbf24' : 'var(--text-muted)', transition: 'all 0.1s' }}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Título */}
+                  <input
+                    value={form.title}
+                    onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                    placeholder="Título da review (opcional)"
+                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13.5, outline: 'none' }}
+                    onFocus={e => e.target.style.borderColor = 'var(--purple)'}
+                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                  />
+                  {/* Texto */}
+                  <textarea
+                    value={form.body}
+                    onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
+                    placeholder="Escreva sua review..."
+                    required
+                    rows={5}
+                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text)', fontSize: 13.5, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                    onFocus={e => e.target.style.borderColor = 'var(--purple)'}
+                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                  />
+                  {/* Spoiler toggle */}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>
+                    <input type="checkbox" checked={form.isSpoiler} onChange={e => setForm(f => ({ ...f, isSpoiler: e.target.checked }))} style={{ width: 15, height: 15, accentColor: 'var(--purple)' }} />
+                    Contém spoilers
+                  </label>
+                  <button
+                    type="submit" disabled={submitting}
+                    style={{
+                      alignSelf: 'flex-start',
+                      background: 'linear-gradient(90deg, var(--purple), #4f46e5)',
+                      color: '#fff', borderRadius: 9, padding: '10px 22px',
+                      fontSize: 13.5, fontWeight: 700,
+                      opacity: submitting ? 0.6 : 1,
+                    }}
+                  >
+                    {submitting ? 'Publicando...' : myReview ? 'Atualizar' : 'Publicar'}
+                  </button>
+                </form>
+              ) : (
+                /* Visualização da minha review */
+                <div>
+                  {myReview.title && <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{myReview.title}</p>}
+                  {myReview.score && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+                      <Star size={13} fill="#fbbf24" color="#fbbf24" />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#fbbf24' }}>{myReview.score}/10</span>
+                    </div>
+                  )}
+                  <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.7 }}>{myReview.body}</p>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div style={{ marginBottom: 24, background: 'rgba(124,58,237,0.06)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
+          <a href="/login" style={{ color: 'var(--purple-light)', fontWeight: 600 }}>Faça login</a> para escrever uma review.
+        </div>
+      )}
+
+      {/* ── Lista de reviews ── */}
+      {reviews.length === 0 ? (
+        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
+          Nenhuma review ainda. Seja o primeiro!
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {reviews.filter(r => r.user_id !== user?.id).concat(reviews.filter(r => r.user_id === user?.id)).map(review => {
+            const isOpen = spoilerOpen[review.id];
+            const authorName = review.user_profiles?.display_name || 'Usuário';
+            const initials = authorName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+
+            return (
+              <div key={review.id} style={{
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 14, padding: '18px 20px',
+                borderColor: review.user_id === user?.id ? 'rgba(124,58,237,0.3)' : 'var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+                  {/* Avatar */}
+                  <div style={{
+                    width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                    background: 'linear-gradient(135deg, var(--purple), var(--blue))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 800, color: '#fff',
+                  }}>{initials}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 700 }}>{authorName}</span>
+                      {review.user_id === user?.id && (
+                        <span style={{ fontSize: 10.5, background: 'rgba(124,58,237,0.15)', color: 'var(--purple-light)', borderRadius: 5, padding: '1px 7px', fontWeight: 600 }}>Você</span>
+                      )}
+                      {review.score && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#fbbf24' }}>
+                          <Star size={11} fill="#fbbf24" />
+                          <span style={{ fontSize: 12, fontWeight: 700 }}>{review.score}/10</span>
+                        </div>
+                      )}
+                      {review.is_spoiler && (
+                        <span style={{ fontSize: 10.5, background: 'rgba(248,113,113,0.15)', color: '#f87171', borderRadius: 5, padding: '1px 7px', fontWeight: 600 }}>SPOILER</span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {new Date(review.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
+                </div>
+
+                {review.title && <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{review.title}</p>}
+
+                {/* Conteúdo — spoiler gate */}
+                {review.is_spoiler && !isOpen ? (
+                  <div style={{
+                    background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.2)',
+                    borderRadius: 8, padding: '14px', textAlign: 'center',
+                  }}>
+                    <p style={{ fontSize: 13, color: '#f87171', marginBottom: 8 }}>⚠️ Este conteúdo pode conter spoilers</p>
+                    <button
+                      onClick={() => setSpoilerOpen(p => ({ ...p, [review.id]: true }))}
+                      style={{ fontSize: 12.5, color: '#f87171', display: 'flex', alignItems: 'center', gap: 5, margin: '0 auto', fontWeight: 600 }}
+                    >
+                      <Eye size={13} /> Ver mesmo assim
+                    </button>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+                    {review.body}
+                  </p>
+                )}
+
+                {/* Votos */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
+                  <button
+                    onClick={async () => {
+                      if (!user) return;
+                      const { upvotes } = await voteReview(review.id, user.id, 1);
+                      setReviews(prev => prev.map(r => r.id === review.id ? { ...r, upvotes } : r));
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)', transition: 'color 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#4ade80'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    <ThumbsUp size={13} /> {review.upvotes || 0}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!user) return;
+                      const { downvotes } = await voteReview(review.id, user.id, -1);
+                      setReviews(prev => prev.map(r => r.id === review.id ? { ...r, downvotes } : r));
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)', transition: 'color 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    <ThumbsDown size={13} /> {review.downvotes || 0}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Página ─── */
 export default function AnimeDetail() {
   const { id }       = useParams();
@@ -898,6 +1320,8 @@ export default function AnimeDetail() {
   const [userScore, setUserScore]       = useState(null);
   const [rewatchCount, setRewatchCount] = useState(0);
   const [watchedEps, setWatchedEps]     = useState(new Set());
+  const [themes, setThemes]             = useState(null); // { openings, endings }
+  const [reviewCount, setReviewCount]   = useState(0);
 
   /* Controla se já houve uma mudança do usuário (evita sync no carregamento inicial) */
   const didMountRef  = useRef(false);
@@ -908,6 +1332,7 @@ export default function AnimeDetail() {
     didMountRef.current = false;
     setLoading(true);
     setMedia(null);
+    setThemes(null);
     setWatchedEps(new Set());
     setActiveTab('sobre');
 
@@ -920,11 +1345,28 @@ export default function AnimeDetail() {
 
     queryAniList(MEDIA_DETAILS, { id: parseInt(id) })
       .then(async data => {
-        setMedia(data.Media);
-        setPageTitle(data.Media.title.english || data.Media.title.romaji);
+        const m = data.Media;
+        setMedia(m);
+        setPageTitle(m.title.english || m.title.romaji);
+
+        /* Carregar episódios assistidos */
         if (user?.id) {
           const eps = await getWatchedEpisodes(user.id, parseInt(id));
           setWatchedEps(eps);
+        }
+
+        /* Buscar temas (OP/ED) via Jikan usando idMal */
+        if (m.idMal) {
+          getJikanThemes(m.idMal).then(t => { if (t) setThemes(t); });
+        } else {
+          /* Fallback: busca por título */
+          const title = m.title.english || m.title.romaji;
+          searchJikanByTitle(title).then(results => {
+            const match = results[0];
+            if (match?.mal_id) {
+              getJikanThemes(match.mal_id).then(t => { if (t) setThemes(t); });
+            }
+          });
         }
       })
       .finally(() => setLoading(false));
@@ -1179,7 +1621,16 @@ export default function AnimeDetail() {
                 <StatBox icon={Calendar} label="Temporada" value={`${SEASON_MAP[media.season] || media.season} ${media.seasonYear}`} />
               )}
               {studio && (
-                <StatBox icon={Clapperboard} label="Estúdio" value={studio} />
+                <div
+                  onClick={() => {
+                    const studioNode = media.studios?.nodes?.find(s => s.isAnimationStudio);
+                    if (studioNode?.id) navigate(`/studio/${studioNode.id}`);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                  title="Ver página do estúdio"
+                >
+                  <StatBox icon={Clapperboard} label="Estúdio" value={studio} />
+                </div>
               )}
               {media.source && (
                 <StatBox icon={BookOpen} label="Fonte" value={SOURCE_MAP[media.source] || media.source} />
@@ -1324,6 +1775,7 @@ export default function AnimeDetail() {
             {[
               { key: 'sobre',     label: 'Sobre' },
               { key: 'episodios', label: 'Episódios', badge: media.episodes ? `${watchedEps.size}/${media.episodes}` : null },
+              { key: 'reviews',   label: 'Reviews' },
             ].map(tab => (
               <button
                 key={tab.key}
@@ -1363,12 +1815,25 @@ export default function AnimeDetail() {
           </section>
         )}
 
+        {/* ── Aba: Reviews ── */}
+        {activeTab === 'reviews' && (
+          <section style={{ marginTop: 32, paddingBottom: 40 }}>
+            <ReviewsTab mediaId={parseInt(id)} mediaCoverImage={media.coverImage} />
+          </section>
+        )}
+
         {/* ── Aba: Sobre ── */}
         {activeTab === 'sobre' && (
         <>
 
         {/* ── Onde Assistir ── */}
         {isAnime && <WhereToWatch externalLinks={media.externalLinks} />}
+
+        {/* ── Trailer ── */}
+        {isAnime && media.trailer && <TrailerEmbed trailer={media.trailer} />}
+
+        {/* ── Músicas (OP/ED) ── */}
+        {isAnime && themes && <ThemesSection themes={themes} />}
 
         {/* ── Personagens ── */}
         {characters.length > 0 && (

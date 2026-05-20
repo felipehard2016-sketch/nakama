@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getByListStatus, getAllMedia } from '../lib/storage';
 import { useTitle } from '../hooks/useTitle';
-import { List, Star, Search } from 'lucide-react';
+import { List, Star, Search, LayoutGrid, AlignJustify } from 'lucide-react';
 
 const TABS = [
   { value: 'WATCHING',      label: 'Assistindo',  color: '#a78bfa' },
@@ -129,11 +129,67 @@ function EmptyTab({ tabLabel, tabColor }) {
   );
 }
 
+/* ─── Modo lista compacta ─── */
+function ListRow({ item, tabColor }) {
+  const navigate = useNavigate();
+  const title    = item.title?.english || item.title?.romaji || 'Sem título';
+  const isAnime  = !['MANGA', 'NOVEL', 'ONE_SHOT'].includes(item.format);
+  const total    = isAnime ? item.episodes : item.chapters;
+  const unit     = isAnime ? 'ep' : 'cap';
+  const pct      = total ? Math.min(100, Math.round((item.progress / total) * 100)) : null;
+  const score    = item.averageScore ? (item.averageScore / 10).toFixed(1) : null;
+
+  return (
+    <div
+      onClick={() => navigate(`/anime/${item.id}`)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '9px 14px', borderRadius: 10, cursor: 'pointer',
+        background: 'var(--bg-card)', border: '1px solid var(--border)',
+        transition: 'border-color 0.15s, background 0.1s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = `${tabColor}55`; e.currentTarget.style.background = `${tabColor}08`; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)'; }}
+    >
+      <img
+        src={item.coverImage?.large}
+        alt={title}
+        loading="lazy"
+        style={{ width: 38, height: 52, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
+          {title}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: tabColor, fontWeight: 600 }}>
+            {item.progress}/{total || '?'} {unit}s
+          </span>
+          {pct !== null && (
+            <div style={{ flex: 1, maxWidth: 120, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct}%`, background: tabColor, borderRadius: 2 }} />
+            </div>
+          )}
+        </div>
+      </div>
+      {score && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+          <Star size={10} fill="#fbbf24" color="#fbbf24" />
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>{score}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MyList() {
   useTitle('Minha Lista');
   const [activeTab, setActiveTab] = useState('WATCHING');
   const [search, setSearch]       = useState('');
   const [items, setItems]         = useState([]);
+  const [viewMode, setViewMode]   = useState(() =>
+    localStorage.getItem('nakama_list_view') || 'grid'
+  );
 
   useEffect(() => {
     setItems(getByListStatus(activeTab));
@@ -164,23 +220,46 @@ export default function MyList() {
               {total} {total === 1 ? 'título' : 'títulos'} salvos
             </p>
           </div>
-          {items.length > 0 && (
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Filtrar..."
-                style={{
-                  background: 'var(--bg-card)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: '8px 12px 8px 30px',
-                  color: 'var(--text)', fontSize: 13, outline: 'none', width: 180,
-                }}
-                onFocus={e => e.target.style.borderColor = 'var(--purple)'}
-                onBlur={e => e.target.style.borderColor = 'var(--border)'}
-              />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {items.length > 0 && (
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Filtrar..."
+                  style={{
+                    background: 'var(--bg-card)', border: '1px solid var(--border)',
+                    borderRadius: 8, padding: '8px 12px 8px 30px',
+                    color: 'var(--text)', fontSize: 13, outline: 'none', width: 180,
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'var(--purple)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                />
+              </div>
+            )}
+            {/* Toggle grid/lista */}
+            <div style={{ display: 'flex', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+              {[
+                { mode: 'grid', Icon: LayoutGrid, title: 'Grade' },
+                { mode: 'list', Icon: AlignJustify, title: 'Lista' },
+              ].map(({ mode, Icon, title }) => (
+                <button
+                  key={mode}
+                  title={title}
+                  onClick={() => { setViewMode(mode); localStorage.setItem('nakama_list_view', mode); }}
+                  style={{
+                    width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: viewMode === mode ? 'var(--purple-light)' : 'var(--text-muted)',
+                    background: viewMode === mode ? 'rgba(124,58,237,0.15)' : 'transparent',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <Icon size={14} />
+                </button>
+              ))}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -218,15 +297,13 @@ export default function MyList() {
           <EmptyTab tabLabel={tab.label} tabColor={tab.color} />
         ) : filtered.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Nenhum resultado para "{search}".</p>
+        ) : viewMode === 'grid' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+            {filtered.map(item => <MediaCard key={item.id} item={item} tabColor={tab.color} />)}
+          </div>
         ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 16,
-          }}>
-            {filtered.map(item => (
-              <MediaCard key={item.id} item={item} tabColor={tab.color} />
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {filtered.map(item => <ListRow key={item.id} item={item} tabColor={tab.color} />)}
           </div>
         )}
       </div>
