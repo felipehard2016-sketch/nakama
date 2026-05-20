@@ -108,7 +108,8 @@ input[type=number] { -moz-appearance: textfield; }
   }
 
   /* Banner mais curto */
-  .anime-banner {
+  .anime-banner,
+  .banner-hero {
     height: 220px !important;
   }
 

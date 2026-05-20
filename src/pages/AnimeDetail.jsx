@@ -10,7 +10,7 @@ import {
   Star, ArrowLeft, Play, BookOpen, Heart, Plus, Check,
   ChevronDown, ChevronRight, ChevronLeft, Minus, Users,
   Clapperboard, Calendar, Clock, Tv, Hash, ExternalLink,
-  RefreshCw, Film,
+  RefreshCw, Film, Lock,
 } from 'lucide-react';
 
 /* ─── Maps ─── */
@@ -419,12 +419,58 @@ function StarRating({ value, onChange }) {
   );
 }
 
+/* ─── Countdown helper ─── */
+function formatCountdown(airingAt) {
+  const secs = airingAt - Math.floor(Date.now() / 1000);
+  if (secs <= 0) return 'Em breve';
+  const days  = Math.floor(secs / 86400);
+  const hours = Math.floor((secs % 86400) / 3600);
+  const mins  = Math.floor((secs % 3600) / 60);
+  if (days > 0)  return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}min`;
+  return `${mins}min`;
+}
+
+const REACTION_EMOJIS = ['👎', '👍', '❤️'];
+
 /* ─── Aba de Episódios ─── */
 function EpisodesTab({ media, watchedEps, onToggleEp, onMarkSeason }) {
   const [openSeasons, setOpenSeasons] = useState(new Set([0]));
-  const totalEps = media.episodes || 0;
+  const [reactions, setReactions]     = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`nakama_ep_reactions_${media.id}`) || '{}'); }
+    catch { return {}; }
+  });
+  /* Tick para atualizar countdown a cada minuto */
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!media.nextAiringEpisode) return;
+    const t = setInterval(() => setTick(n => n + 1), 60_000);
+    return () => clearInterval(t);
+  }, [media.nextAiringEpisode]);
 
-  if (!totalEps) {
+  const totalEps  = media.episodes || 0;
+  const nextAiring = media.nextAiringEpisode; // { airingAt, episode, timeUntilAiring }
+
+  /* Quantos episódios já foram ao ar */
+  const releasedCount = nextAiring
+    ? nextAiring.episode - 1
+    : totalEps; // série finalizada ou desconhecida → todos lançados
+
+  /* Mapa episode → airingAt (unix) */
+  const airingMap = {};
+  (media.airingSchedule?.nodes || []).forEach(n => { airingMap[n.episode] = n.airingAt; });
+  if (nextAiring) airingMap[nextAiring.episode] = nextAiring.airingAt;
+
+  /* Mapa de títulos reais via streamingEpisodes */
+  const streamMap = {};
+  (media.streamingEpisodes || []).forEach(ep => {
+    const m = ep.title?.match(/episode\s+(\d+)/i);
+    if (m) streamMap[parseInt(m[1])] = ep;
+  });
+
+  const effectiveTotal = totalEps || releasedCount;
+
+  if (!effectiveTotal) {
     return (
       <div style={{ padding: '48px 0', textAlign: 'center' }}>
         <Film size={36} color="var(--text-muted)" style={{ marginBottom: 12, opacity: 0.4 }} />
@@ -433,109 +479,169 @@ function EpisodesTab({ media, watchedEps, onToggleEp, onMarkSeason }) {
     );
   }
 
-  /* Mapa de episódios de streaming (AniList streamingEpisodes) */
-  const streamMap = {};
-  (media.streamingEpisodes || []).forEach(ep => {
-    const m = ep.title?.match(/episode\s+(\d+)/i);
-    if (m) streamMap[parseInt(m[1])] = ep;
-  });
-
-  /* Lista de episódios */
-  const episodes = Array.from({ length: totalEps }, (_, i) => {
+  /* Lista completa de episódios */
+  const episodes = Array.from({ length: effectiveTotal }, (_, i) => {
     const n  = i + 1;
     const st = streamMap[n];
     const rawTitle = st?.title?.replace(/^episode\s+\d+\s*[-–:]\s*/i, '').trim() || '';
+    const isReleased = n <= releasedCount;
+    const isNextEp   = !!(nextAiring && n === nextAiring.episode);
     return {
-      number:    n,
-      title:     rawTitle || `Episódio ${n}`,
-      thumbnail: st?.thumbnail || media.coverImage?.extraLarge || media.coverImage?.large,
+      number:     n,
+      title:      rawTitle || `Episódio ${n}`,
+      thumbnail:  st?.thumbnail || media.coverImage?.extraLarge || media.coverImage?.large,
+      isReleased,
+      isNextEp,
+      airingAt:   airingMap[n] || null,
     };
   });
 
-  /* Agrupar em blocos de 13 (um "cour") */
+  const watchedCount = watchedEps.size;
+  const pctWatched   = effectiveTotal > 0 ? Math.round((watchedCount / effectiveTotal) * 100) : 0;
+
+  /* Carrossel: próximos não-assistidos e já lançados */
+  const continueEps = episodes.filter(ep => ep.isReleased && !watchedEps.has(ep.number)).slice(0, 8);
+
+  /* Agrupar em blocos de 13 (cour) */
   const COUR = 13;
   const seasons = [];
   for (let i = 0; i < episodes.length; i += COUR) seasons.push(episodes.slice(i, i + COUR));
-
-  /* "Continuar assistindo": próximos não-assistidos */
-  const nextEps = episodes.filter(ep => !watchedEps.has(ep.number)).slice(0, 8);
 
   const toggleSeason = idx => {
     setOpenSeasons(s => { const n = new Set(s); n.has(idx) ? n.delete(idx) : n.add(idx); return n; });
   };
 
+  const setReaction = (epNumber, emoji) => {
+    setReactions(prev => {
+      const next = { ...prev };
+      next[epNumber] === emoji ? delete next[epNumber] : (next[epNumber] = emoji);
+      localStorage.setItem(`nakama_ep_reactions_${media.id}`, JSON.stringify(next));
+      return next;
+    });
+  };
+
   return (
     <div>
-      {/* ── Continuar assistindo ── */}
-      {nextEps.length > 0 && (
+      {/* ── Barra de progresso global ── */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Progresso geral</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--purple-light)' }}>
+            {watchedCount} / {effectiveTotal} assistidos · {pctWatched}%
+          </span>
+        </div>
+        <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', width: `${pctWatched}%`,
+            background: pctWatched === 100 ? '#4ade80' : 'linear-gradient(90deg, var(--purple), #60a5fa)',
+            borderRadius: 3, transition: 'width 0.4s ease',
+          }} />
+        </div>
+        {nextAiring && (
+          <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 7, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{
+              background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)',
+              borderRadius: 5, padding: '2px 9px', color: '#4ade80', fontWeight: 700,
+            }}>
+              {releasedCount} de {effectiveTotal} lançados
+            </span>
+            Próximo: Ep. {nextAiring.episode} em <strong style={{ color: 'var(--purple-light)' }}>{formatCountdown(nextAiring.airingAt)}</strong>
+          </p>
+        )}
+      </div>
+
+      {/* ── Próximo episódio — destaque ── */}
+      {nextAiring && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(124,58,237,0.1), rgba(79,70,229,0.06))',
+          border: '1px solid rgba(124,58,237,0.28)',
+          borderRadius: 14, padding: '16px 20px', marginBottom: 28,
+          display: 'flex', alignItems: 'center', gap: 16,
+        }}>
+          <div style={{
+            width: 46, height: 46, borderRadius: 12, flexShrink: 0,
+            background: 'rgba(124,58,237,0.18)', border: '1px solid rgba(124,58,237,0.35)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Clock size={20} color="var(--purple-light)" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--purple-light)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+              Próximo episódio
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', marginBottom: 3 }}>
+              Episódio {nextAiring.episode}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              {formatCountdown(nextAiring.airingAt)}
+              {' · '}
+              {new Date(nextAiring.airingAt * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Carrossel: continuar / começar ── */}
+      {continueEps.length > 0 && (
         <div style={{ marginBottom: 36 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, color: 'var(--text)' }}>
             {watchedEps.size > 0 ? '▶ Continuar assistindo' : '▶ Começar a assistir'}
           </h3>
           <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
-            {nextEps.map(ep => {
-              const watched = watchedEps.has(ep.number);
-              return (
-                <div key={ep.number} style={{
-                  flexShrink: 0, width: 192,
-                  background: 'var(--bg-card)',
-                  border: `1px solid ${watched ? 'rgba(74,222,128,0.3)' : 'var(--border)'}`,
-                  borderRadius: 10, overflow: 'hidden',
-                  transition: 'transform 0.15s, border-color 0.15s',
-                }}
-                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                >
-                  <div style={{ position: 'relative', paddingBottom: '56.25%', background: '#111' }}>
-                    <img src={ep.thumbnail} alt="" loading="lazy"
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                    {watched && (
-                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Check size={26} color="#4ade80" strokeWidth={2.5} />
-                      </div>
-                    )}
-                    <div style={{
-                      position: 'absolute', top: 6, left: 6,
-                      background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)',
-                      borderRadius: 4, padding: '2px 7px',
-                      fontSize: 10.5, fontWeight: 700, color: 'var(--text)',
-                    }}>E{String(ep.number).padStart(2, '0')}</div>
-                    <button
-                      onClick={() => onToggleEp(ep.number)}
-                      style={{
-                        position: 'absolute', bottom: 6, right: 6,
-                        background: watched ? 'rgba(74,222,128,0.9)' : 'rgba(124,58,237,0.9)',
-                        border: 'none', borderRadius: 6, padding: '4px 9px',
-                        color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 3,
-                        backdropFilter: 'blur(4px)',
-                      }}
-                    >
-                      <Check size={10} strokeWidth={3} /> {watched ? 'Assistido' : 'Marcar'}
-                    </button>
-                  </div>
-                  <div style={{ padding: '8px 10px' }}>
-                    <p style={{
-                      fontSize: 11.5, fontWeight: 500, color: 'var(--text-secondary)',
-                      lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis',
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                    }}>{ep.title}</p>
-                  </div>
+            {continueEps.map(ep => (
+              <div key={ep.number} style={{
+                flexShrink: 0, width: 192,
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                borderRadius: 10, overflow: 'hidden',
+                transition: 'transform 0.15s, border-color 0.15s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+              >
+                <div style={{ position: 'relative', paddingBottom: '56.25%', background: '#111' }}>
+                  <img src={ep.thumbnail} alt="" loading="lazy"
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{
+                    position: 'absolute', top: 6, left: 6,
+                    background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)',
+                    borderRadius: 4, padding: '2px 7px',
+                    fontSize: 10.5, fontWeight: 700, color: 'var(--text)',
+                  }}>E{String(ep.number).padStart(2, '0')}</div>
+                  <button
+                    onClick={() => onToggleEp(ep.number)}
+                    style={{
+                      position: 'absolute', bottom: 6, right: 6,
+                      background: 'rgba(124,58,237,0.9)',
+                      border: 'none', borderRadius: 6, padding: '4px 9px',
+                      color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 3, backdropFilter: 'blur(4px)',
+                    }}
+                  >
+                    <Check size={10} strokeWidth={3} /> Marcar
+                  </button>
                 </div>
-              );
-            })}
+                <div style={{ padding: '8px 10px' }}>
+                  <p style={{
+                    fontSize: 11.5, fontWeight: 500, color: 'var(--text-secondary)',
+                    lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis',
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                  }}>{ep.title}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* ── Todos os episódios por temporada/cour ── */}
+      {/* ── Todos os episódios por cour ── */}
       <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Todos os episódios</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {seasons.map((seasonEps, idx) => {
-          const watchedCount = seasonEps.filter(ep => watchedEps.has(ep.number)).length;
-          const isComplete   = watchedCount === seasonEps.length;
-          const isOpen       = openSeasons.has(idx);
-          const pct          = (watchedCount / seasonEps.length) * 100;
+          const releasedSeasonEps  = seasonEps.filter(ep => ep.isReleased);
+          const watchedSeasonCount = releasedSeasonEps.filter(ep => watchedEps.has(ep.number)).length;
+          const isComplete = releasedSeasonEps.length > 0 && watchedSeasonCount === releasedSeasonEps.length;
+          const isOpen     = openSeasons.has(idx);
+          const pct        = releasedSeasonEps.length > 0 ? (watchedSeasonCount / releasedSeasonEps.length) * 100 : 0;
 
           return (
             <div key={idx} style={{
@@ -543,7 +649,7 @@ function EpisodesTab({ media, watchedEps, onToggleEp, onMarkSeason }) {
               border: `1px solid ${isComplete ? 'rgba(74,222,128,0.25)' : 'var(--border)'}`,
               borderRadius: 12, overflow: 'hidden',
             }}>
-              {/* Season header */}
+              {/* Cabeçalho do cour */}
               <div
                 onClick={() => toggleSeason(idx)}
                 style={{
@@ -559,7 +665,9 @@ function EpisodesTab({ media, watchedEps, onToggleEp, onMarkSeason }) {
                       {seasons.length > 1 ? `Parte ${idx + 1}` : 'Episódios'}
                     </span>
                     <span style={{ fontSize: 12, fontWeight: 500, color: isComplete ? '#4ade80' : 'var(--text-muted)' }}>
-                      {watchedCount}/{seasonEps.length} assistidos
+                      {watchedSeasonCount}/{releasedSeasonEps.length} assistidos
+                      {releasedSeasonEps.length < seasonEps.length &&
+                        ` · ${seasonEps.length - releasedSeasonEps.length} não lançados`}
                     </span>
                   </div>
                   <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
@@ -570,62 +678,141 @@ function EpisodesTab({ media, watchedEps, onToggleEp, onMarkSeason }) {
                     }} />
                   </div>
                 </div>
-                <button
-                  onClick={e => { e.stopPropagation(); onMarkSeason(seasonEps, !isComplete); }}
-                  style={{
-                    background: isComplete ? 'rgba(74,222,128,0.15)' : 'rgba(124,58,237,0.15)',
-                    border: `1px solid ${isComplete ? 'rgba(74,222,128,0.4)' : 'rgba(124,58,237,0.4)'}`,
-                    borderRadius: 7, padding: '5px 11px',
-                    fontSize: 11.5, fontWeight: 600, flexShrink: 0,
-                    color: isComplete ? '#4ade80' : 'var(--purple-light)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {isComplete ? '✓ Completo' : 'Marcar tudo'}
-                </button>
+                {releasedSeasonEps.length > 0 && (
+                  <button
+                    onClick={e => { e.stopPropagation(); onMarkSeason(releasedSeasonEps, !isComplete); }}
+                    style={{
+                      background: isComplete ? 'rgba(74,222,128,0.15)' : 'rgba(124,58,237,0.15)',
+                      border: `1px solid ${isComplete ? 'rgba(74,222,128,0.4)' : 'rgba(124,58,237,0.4)'}`,
+                      borderRadius: 7, padding: '5px 11px',
+                      fontSize: 11.5, fontWeight: 600, flexShrink: 0,
+                      color: isComplete ? '#4ade80' : 'var(--purple-light)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isComplete ? '✓ Completo' : 'Marcar tudo'}
+                  </button>
+                )}
                 <ChevronDown size={15} color="var(--text-muted)"
                   style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
               </div>
 
-              {/* Episode rows */}
+              {/* Linhas de episódio */}
               {isOpen && (
                 <div style={{ borderTop: '1px solid var(--border)' }}>
                   {seasonEps.map(ep => {
-                    const isWatched = watchedEps.has(ep.number);
+                    const isWatched  = watchedEps.has(ep.number);
+                    const locked     = !ep.isReleased && !ep.isNextEp;
+                    const myReaction = reactions[ep.number];
+
                     return (
                       <div key={ep.number}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 12,
                           padding: '9px 16px',
                           borderBottom: '1px solid rgba(255,255,255,0.03)',
-                          opacity: isWatched ? 0.55 : 1, transition: 'background 0.1s, opacity 0.2s',
+                          opacity: isWatched ? 0.55 : locked ? 0.42 : 1,
+                          transition: 'background 0.12s, opacity 0.2s',
+                          background: ep.isNextEp ? 'rgba(124,58,237,0.06)' : 'transparent',
                         }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.025)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        onMouseEnter={e => {
+                          if (!locked) e.currentTarget.style.background = ep.isNextEp
+                            ? 'rgba(124,58,237,0.1)' : 'rgba(255,255,255,0.025)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = ep.isNextEp
+                            ? 'rgba(124,58,237,0.06)' : 'transparent';
+                        }}
                       >
-                        <img src={ep.thumbnail} alt="" loading="lazy"
-                          style={{ width: 76, height: 43, objectFit: 'cover', borderRadius: 5, flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 2 }}>
-                            {seasons.length > 1 ? `P${String(idx+1).padStart(2,'0')} · ` : ''}E{String(ep.number).padStart(2,'0')}
-                          </p>
-                          <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {ep.title}
-                          </p>
+                        {/* Thumbnail / locked */}
+                        <div style={{ position: 'relative', width: 76, height: 43, borderRadius: 5, overflow: 'hidden', flexShrink: 0 }}>
+                          {locked ? (
+                            <div style={{
+                              width: '100%', height: '100%',
+                              background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <Lock size={16} color="rgba(255,255,255,0.25)" />
+                            </div>
+                          ) : (
+                            <img src={ep.thumbnail} alt="" loading="lazy"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          )}
+                          {ep.isNextEp && (
+                            <div style={{
+                              position: 'absolute', inset: 0,
+                              background: 'rgba(124,58,237,0.45)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <Clock size={15} color="#fff" />
+                            </div>
+                          )}
                         </div>
+
+                        {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 10.5, fontWeight: 500, marginBottom: 2,
+                            color: ep.isNextEp ? 'var(--purple-light)' : 'var(--text-muted)' }}>
+                            {seasons.length > 1 ? `P${String(idx + 1).padStart(2, '0')} · ` : ''}
+                            E{String(ep.number).padStart(2, '0')}
+                            {ep.isNextEp && ' · Em breve'}
+                          </p>
+                          <p style={{
+                            fontSize: 13, fontWeight: ep.isNextEp ? 700 : 500,
+                            color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {locked ? `Episódio ${ep.number}` : ep.title}
+                          </p>
+                          {ep.isNextEp && nextAiring && (
+                            <p style={{ fontSize: 11, color: 'var(--purple-light)', fontWeight: 600, marginTop: 2 }}>
+                              {formatCountdown(nextAiring.airingAt)}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Reações (só episódios lançados) */}
+                        {ep.isReleased && !locked && (
+                          <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                            {REACTION_EMOJIS.map(emoji => (
+                              <button
+                                key={emoji}
+                                onClick={() => setReaction(ep.number, emoji)}
+                                title={emoji}
+                                style={{
+                                  width: 26, height: 26, borderRadius: 6, fontSize: 13, cursor: 'pointer',
+                                  background: myReaction === emoji ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.04)',
+                                  border: `1px solid ${myReaction === emoji ? 'rgba(124,58,237,0.4)' : 'transparent'}`,
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  transition: 'all 0.15s',
+                                }}
+                                onMouseEnter={e => { if (myReaction !== emoji) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                                onMouseLeave={e => { if (myReaction !== emoji) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Check / lock button */}
                         <button
-                          onClick={() => onToggleEp(ep.number)}
+                          disabled={locked}
+                          onClick={() => !locked && onToggleEp(ep.number)}
                           style={{
-                            width: 28, height: 28, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
+                            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            background: isWatched ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.05)',
-                            border: `1px solid ${isWatched ? 'rgba(74,222,128,0.5)' : 'var(--border)'}`,
+                            background: isWatched ? 'rgba(74,222,128,0.2)' : locked ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+                            border: `1px solid ${isWatched ? 'rgba(74,222,128,0.5)' : locked ? 'rgba(255,255,255,0.06)' : 'var(--border)'}`,
                             transition: 'all 0.15s',
+                            cursor: locked ? 'not-allowed' : 'pointer',
                           }}
-                          onMouseEnter={e => { if (!isWatched) { e.currentTarget.style.background = 'rgba(124,58,237,0.2)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)'; } }}
-                          onMouseLeave={e => { if (!isWatched) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'var(--border)'; } }}
+                          onMouseEnter={e => { if (!locked && !isWatched) { e.currentTarget.style.background = 'rgba(124,58,237,0.2)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)'; } }}
+                          onMouseLeave={e => { if (!locked && !isWatched) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'var(--border)'; } }}
                         >
-                          <Check size={12} color={isWatched ? '#4ade80' : 'var(--text-muted)'} strokeWidth={2.5} />
+                          {locked
+                            ? <Lock size={10} color="rgba(255,255,255,0.2)" />
+                            : <Check size={12} color={isWatched ? '#4ade80' : 'var(--text-muted)'} strokeWidth={2.5} />
+                          }
                         </button>
                       </div>
                     );
@@ -637,6 +824,56 @@ function EpisodesTab({ media, watchedEps, onToggleEp, onMarkSeason }) {
         })}
       </div>
     </div>
+  );
+}
+
+/* ─── Onde Assistir ─── */
+function WhereToWatch({ externalLinks }) {
+  const platforms = (externalLinks || []).filter(l => l.type === 'STREAMING' && !l.isDisabled && l.url);
+  if (!platforms.length) return null;
+
+  return (
+    <section style={{ marginTop: 40 }}>
+      <SectionTitle icon={Tv}>Onde Assistir</SectionTitle>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {platforms.map(link => (
+          <a
+            key={link.id}
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 10, padding: '10px 16px',
+              fontSize: 13.5, fontWeight: 600,
+              color: link.color || 'var(--text)',
+              textDecoration: 'none',
+              transition: 'border-color 0.15s, transform 0.15s, background 0.15s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = link.color || 'var(--purple)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.background = link.color
+                ? `${link.color}14`
+                : 'rgba(124,58,237,0.08)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.transform = 'none';
+              e.currentTarget.style.background = 'var(--bg-card)';
+            }}
+          >
+            {link.icon ? (
+              <img src={link.icon} alt="" style={{ width: 18, height: 18, objectFit: 'contain', borderRadius: 4 }} />
+            ) : (
+              <ExternalLink size={14} />
+            )}
+            {link.site}
+          </a>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -791,14 +1028,22 @@ export default function AnimeDetail() {
     <div style={{ animation: 'fadeIn 0.35s ease' }}>
 
       {/* ── Banner ── */}
-      <div style={{ position: 'relative', height: 380, overflow: 'hidden' }}>
-        {(media.bannerImage || media.coverImage.extraLarge) && (
+      <div className="banner-hero" style={{ position: 'relative', height: 380, overflow: 'hidden', background: '#0d0d14' }}>
+        {media.bannerImage ? (
           <img
-            src={media.bannerImage || media.coverImage.extraLarge}
+            src={media.bannerImage}
             alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }}
           />
-        )}
+        ) : (media.coverImage?.extraLarge || media.coverImage?.large) ? (
+          <div style={{
+            position: 'absolute', inset: '-10%',
+            backgroundImage: `url(${media.coverImage.extraLarge || media.coverImage.large})`,
+            backgroundSize: 'cover', backgroundPosition: 'center top',
+            filter: 'blur(28px)',
+            opacity: 0.45,
+          }} />
+        ) : null}
         {/* Gradiente lateral + inferior */}
         <div style={{
           position: 'absolute', inset: 0,
@@ -913,7 +1158,16 @@ export default function AnimeDetail() {
                 <StatBox icon={Star} label="Nota" value={score} accent="#fbbf24" />
               )}
               {isAnime && media.episodes && (
-                <StatBox icon={Play} label="Episódios" value={media.episodes} />
+                <StatBox
+                  icon={Play}
+                  label="Episódios"
+                  value={
+                    media.nextAiringEpisode
+                      ? `${media.nextAiringEpisode.episode - 1} / ${media.episodes}`
+                      : String(media.episodes)
+                  }
+                  accent={media.nextAiringEpisode ? '#22c55e' : undefined}
+                />
               )}
               {!isAnime && media.chapters && (
                 <StatBox icon={BookOpen} label="Capítulos" value={media.chapters} />
@@ -1112,6 +1366,9 @@ export default function AnimeDetail() {
         {/* ── Aba: Sobre ── */}
         {activeTab === 'sobre' && (
         <>
+
+        {/* ── Onde Assistir ── */}
+        {isAnime && <WhereToWatch externalLinks={media.externalLinks} />}
 
         {/* ── Personagens ── */}
         {characters.length > 0 && (

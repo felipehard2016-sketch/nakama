@@ -161,6 +161,14 @@ export const MEDIA_DETAILS = `
       favourites
       rankings { rank type context allTime season year }
       streamingEpisodes { title thumbnail url site }
+      nextAiringEpisode { airingAt episode timeUntilAiring }
+      airingSchedule(perPage: 50, notYetAired: false) {
+        nodes { id episode airingAt }
+      }
+      externalLinks {
+        id url site siteId type language
+        color icon isDisabled
+      }
     }
   }
 `;
