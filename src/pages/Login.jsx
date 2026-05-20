@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, LogIn, Sparkles } from 'lucide-react';
 
 export default function Login() {
-  const { signIn } = useAuth();
-  const navigate   = useNavigate();
-  const location   = useLocation();
-  const from       = location.state?.from?.pathname || '/';
+  const { signIn, user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  /* Para onde ir depois do login (salvo pelo ProtectedRoute) */
+  const from = location.state?.from?.pathname || '/';
 
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -15,23 +17,45 @@ export default function Login() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
 
+  /*
+   * Se o usuário já está logado (sessão persistida), redireciona imediatamente.
+   * Isso garante que o AuthProvider já resolveu a sessão antes de renderizar
+   * e a sidebar já mostra o nome correto.
+   */
+  useEffect(() => {
+    if (user) navigate(from, { replace: true });
+  }, [user, from, navigate]);
+
   const handleSubmit = async e => {
     e.preventDefault();
     if (!email || !password) { setError('Preencha todos os campos.'); return; }
     setError('');
     setLoading(true);
+
     try {
       await signIn({ email, password });
-      navigate(from, { replace: true });
+      /*
+       * signIn() retorna quando o Supabase confirma a autenticação.
+       * onAuthStateChange dispara logo após e chama setUser() no contexto.
+       * O useEffect acima detecta user != null e faz o redirect.
+       * Não precisamos de navigate() aqui — isso evita qualquer race condition.
+       */
     } catch (err) {
-      setError(
-        err.message?.includes('Invalid login credentials')
-          ? 'E-mail ou senha incorretos.'
-          : err.message || 'Erro ao entrar.'
-      );
-    } finally {
+      const msg = err.message || '';
+      if (msg.includes('Invalid login credentials')) {
+        setError('E-mail ou senha incorretos.');
+      } else if (msg.includes('Email not confirmed')) {
+        setError('Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.');
+      } else if (msg.includes('Too many requests')) {
+        setError('Muitas tentativas. Aguarde alguns minutos e tente novamente.');
+      } else {
+        setError(msg || 'Erro ao entrar. Tente novamente.');
+      }
       setLoading(false);
     }
+    /* Não colocamos setLoading(false) no finally: após o login
+       o componente será desmontado pelo redirect, evitando
+       o warning "setState em componente desmontado". */
   };
 
   return (
@@ -39,12 +63,11 @@ export default function Login() {
       minHeight: '100vh', background: 'var(--bg)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
     }}>
-      {/* Glow */}
+      {/* Glow de fundo */}
       <div style={{
         position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)',
-        width: 600, height: 600,
+        width: 600, height: 600, pointerEvents: 'none',
         background: 'radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%)',
-        pointerEvents: 'none',
       }} />
 
       <div style={{
@@ -53,6 +76,7 @@ export default function Login() {
         borderRadius: 20, padding: '40px 36px',
         position: 'relative', animation: 'fadeIn 0.4s ease',
       }}>
+
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
@@ -68,6 +92,7 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
           {/* E-mail */}
           <div>
             <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
@@ -75,12 +100,8 @@ export default function Login() {
             </label>
             <input
               type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="seu@email.com" autoComplete="email"
-              style={{
-                width: '100%', background: 'var(--bg)', border: '1px solid var(--border)',
-                borderRadius: 10, padding: '11px 14px', color: 'var(--text)',
-                fontSize: 14, outline: 'none', transition: 'border-color 0.15s',
-              }}
+              placeholder="seu@email.com" autoComplete="email" autoFocus
+              style={inputStyle}
               onFocus={e => e.target.style.borderColor = 'var(--purple)'}
               onBlur={e => e.target.style.borderColor = 'var(--border)'}
             />
@@ -101,16 +122,16 @@ export default function Login() {
                 type={showPw ? 'text' : 'password'} value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••" autoComplete="current-password"
-                style={{
-                  width: '100%', background: 'var(--bg)', border: '1px solid var(--border)',
-                  borderRadius: 10, padding: '11px 42px 11px 14px', color: 'var(--text)',
-                  fontSize: 14, outline: 'none', transition: 'border-color 0.15s',
-                }}
+                style={inputStyle}
                 onFocus={e => e.target.style.borderColor = 'var(--purple)'}
                 onBlur={e => e.target.style.borderColor = 'var(--border)'}
               />
-              <button type="button" onClick={() => setShowPw(v => !v)}
-                style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', padding: 2 }}
+              <button
+                type="button" onClick={() => setShowPw(v => !v)}
+                style={{
+                  position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)', display: 'flex', padding: 2, transition: 'color 0.15s',
+                }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
                 onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
               >
@@ -119,27 +140,40 @@ export default function Login() {
             </div>
           </div>
 
+          {/* Mensagem de erro */}
           {error && (
             <div style={{
               background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)',
               borderRadius: 9, padding: '10px 14px', fontSize: 13, color: '#f87171',
-            }}>{error}</div>
+              animation: 'fadeIn 0.2s ease',
+            }}>
+              {error}
+            </div>
           )}
 
-          <button type="submit" disabled={loading}
+          {/* Botão */}
+          <button
+            type="submit" disabled={loading}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               background: loading ? 'rgba(124,58,237,0.4)' : 'linear-gradient(90deg, var(--purple), #4f46e5)',
-              color: '#fff', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700,
-              cursor: loading ? 'default' : 'pointer', marginTop: 4,
+              color: '#fff', borderRadius: 10, padding: '12px',
+              fontSize: 14, fontWeight: 700, marginTop: 4,
+              cursor: loading ? 'default' : 'pointer',
               boxShadow: loading ? 'none' : '0 4px 16px rgba(124,58,237,0.35)',
               transition: 'opacity 0.15s',
             }}
             onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = '0.88'; }}
-            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
           >
             {loading
-              ? <div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+              ? <div style={{
+                  width: 18, height: 18,
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  borderTop: '2px solid #fff',
+                  borderRadius: '50%',
+                  animation: 'spin 0.7s linear infinite',
+                }} />
               : <><LogIn size={16} /> Entrar</>
             }
           </button>
@@ -153,3 +187,9 @@ export default function Login() {
     </div>
   );
 }
+
+const inputStyle = {
+  width: '100%', background: 'var(--bg)', border: '1px solid var(--border)',
+  borderRadius: 10, padding: '11px 14px', color: 'var(--text)',
+  fontSize: 14, outline: 'none', transition: 'border-color 0.15s',
+};
