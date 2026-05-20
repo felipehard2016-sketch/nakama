@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { MarathonProvider } from './context/MarathonContext';
 import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -18,6 +19,7 @@ import Discover        from './pages/Discover';
 import StudioPage      from './pages/StudioPage';
 import Wrapped        from './pages/Wrapped';
 import Achievements   from './pages/Achievements';
+import Rankings       from './pages/Rankings';
 import Login           from './pages/Login';
 import Register        from './pages/Register';
 import ForgotPassword  from './pages/ForgotPassword';
@@ -45,6 +47,7 @@ export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
+      <MarathonProvider>
         <BrowserRouter>
           <KeyboardShortcuts />
           <Routes>
@@ -66,6 +69,7 @@ export default function App() {
               <Route path="studio/:id"      element={<StudioPage />} />
               <Route path="wrapped"         element={<Wrapped />} />
               <Route path="achievements"    element={<Achievements />} />
+              <Route path="rankings"        element={<Rankings />} />
 
               {/* Protegidas — exigem login */}
               <Route path="my-list"   element={guard(<MyList />)} />
@@ -75,6 +79,7 @@ export default function App() {
             </Route>
           </Routes>
         </BrowserRouter>
+      </MarathonProvider>
       </ToastProvider>
     </AuthProvider>
   );

@@ -8,12 +8,13 @@ import { useTitle } from '../hooks/useTitle';
 import { getWatchedEpisodes, markEpisode } from '../lib/episodeProgress';
 import { getJikanThemes, searchJikanByTitle, getJikanNews } from '../lib/jikan';
 import { getReviews, getUserReview, upsertReview, deleteReview, voteReview } from '../lib/reviews';
+import { useMarathon } from '../context/MarathonContext';
 import {
   Star, ArrowLeft, Play, BookOpen, Heart, Plus, Check,
   ChevronDown, ChevronRight, ChevronLeft, Minus, Users,
   Clapperboard, Calendar, Clock, Tv, Hash, ExternalLink,
   RefreshCw, Film, Lock, Music, MessageSquare, ThumbsUp,
-  ThumbsDown, Pencil, Trash2, Eye, EyeOff,
+  ThumbsDown, Pencil, Trash2, Eye, EyeOff, Timer,
 } from 'lucide-react';
 
 /* Inline YouTube icon (lucide não tem) */
@@ -1368,6 +1369,31 @@ function ReviewsTab({ mediaId, mediaCoverImage }) {
   );
 }
 
+/* ─── Botão Modo Maratona ─── */
+function MarathonBtn({ mediaId, title, cover, progress }) {
+  const { running, session, startMarathon, stopMarathon } = useMarathon();
+  const isThisAnime = running && session?.animeId === mediaId;
+
+  return (
+    <button
+      onClick={() => isThisAnime ? stopMarathon() : startMarathon(mediaId, title, cover, progress)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 7,
+        background: isThisAnime ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)',
+        border: `1px solid ${isThisAnime ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.1)'}`,
+        color: isThisAnime ? '#fbbf24' : 'var(--text-secondary)',
+        borderRadius: 10, padding: '11px 18px',
+        fontSize: 13.5, fontWeight: 600, transition: 'all 0.15s',
+      }}
+      onMouseEnter={e => { if (!isThisAnime) { e.currentTarget.style.borderColor = 'rgba(251,191,36,0.35)'; e.currentTarget.style.color = '#fbbf24'; } }}
+      onMouseLeave={e => { if (!isThisAnime) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
+    >
+      <Timer size={14} />
+      {isThisAnime ? 'Maratona ativa' : 'Modo Maratona'}
+    </button>
+  );
+}
+
 /* ─── Página ─── */
 export default function AnimeDetail() {
   const { id }       = useParams();
@@ -1778,6 +1804,11 @@ export default function AnimeDetail() {
                 <Heart size={15} fill={favorited ? '#f87171' : 'none'} />
                 {favorited ? 'Favoritado' : 'Favoritar'}
               </button>
+
+              {/* Modo Maratona (só anime) */}
+              {isAnime && listStatus && listStatus !== 'PLAN_TO_WATCH' && (
+                <MarathonBtn mediaId={parseInt(id)} title={media.title?.english || media.title?.romaji} cover={media.coverImage?.large} progress={progress} />
+              )}
 
               {/* Rewatch (só anime completo) */}
               {isAnime && listStatus === 'COMPLETED' && (

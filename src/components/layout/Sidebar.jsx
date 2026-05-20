@@ -1,16 +1,17 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Search, List, Star, BarChart2, Calendar, User, Tv,
-  LogIn, LogOut, ChevronRight, Compass, Sparkles, Trophy, Sun, Moon,
+  LogIn, LogOut, ChevronRight, Compass, Sparkles, Trophy, Sun, Moon, Medal,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAllMedia } from '../../lib/storage';
 import { useTheme } from '../../hooks/useTheme';
 
 const MAIN_LINKS = [
-  { to: '/', icon: Home, label: 'Home' },
-  { to: '/search', icon: Search, label: 'Buscar' },
+  { to: '/',         icon: Home,    label: 'Home' },
+  { to: '/search',   icon: Search,  label: 'Buscar' },
   { to: '/discover', icon: Compass, label: 'Descobrir' },
+  { to: '/rankings', icon: Medal,   label: 'Rankings' },
   { to: '/calendar', icon: Calendar, label: 'Calendário' },
 ];
 

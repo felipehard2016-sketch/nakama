@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { SidebarProvider, useSidebar } from '../../context/SidebarContext';
 import Sidebar from './Sidebar';
+import MarathonWidget from '../ui/MarathonWidget';
 import { Menu, ArrowUp } from 'lucide-react';
 
 /* ── Back to top ── */
@@ -109,6 +110,7 @@ function LayoutInner() {
         <Outlet />
       </main>
       <BackToTop />
+      <MarathonWidget />
     </div>
   );
 }
