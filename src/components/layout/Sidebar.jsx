@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Search, List, Star, BarChart2, Calendar, User, Tv,
-  LogIn, LogOut, ChevronRight, Compass, Sparkles,
+  LogIn, LogOut, ChevronRight, Compass, Sparkles, Trophy,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAllMedia } from '../../lib/storage';
@@ -14,11 +14,12 @@ const MAIN_LINKS = [
 ];
 
 const ACCOUNT_LINKS = [
-  { to: '/my-list',  icon: List,     label: 'Minha Lista' },
-  { to: '/favorites', icon: Star,    label: 'Favoritos' },
-  { to: '/stats',    icon: BarChart2, label: 'Estatísticas' },
-  { to: '/wrapped',  icon: Sparkles, label: 'Wrapped' },
-  { to: '/profile',  icon: User,     label: 'Perfil' },
+  { to: '/my-list',       icon: List,     label: 'Minha Lista' },
+  { to: '/favorites',     icon: Star,     label: 'Favoritos' },
+  { to: '/stats',         icon: BarChart2, label: 'Estatísticas' },
+  { to: '/achievements',  icon: Trophy,   label: 'Conquistas' },
+  { to: '/wrapped',       icon: Sparkles, label: 'Wrapped' },
+  { to: '/profile',       icon: User,     label: 'Perfil' },
 ];
 
 /* Calcula nível pelo total de episódios/capítulos assistidos */

@@ -73,6 +73,43 @@ export function getMonthlyActivity(months = 6) {
 }
 
 /* ════════════════════════════════════════
+   STREAK TRACKING
+════════════════════════════════════════ */
+const STREAK_KEY = 'nakama_streak';
+
+/** Chama quando o usuário registra qualquer atividade (salvar/atualizar mídia) */
+export function updateStreak() {
+  const today     = new Date().toDateString();
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const yStr      = yesterday.toDateString();
+
+  const raw     = localStorage.getItem(STREAK_KEY);
+  const streak  = raw ? JSON.parse(raw) : { lastDate: null, count: 0, longest: 0 };
+
+  if (streak.lastDate === today) return streak; // já contou hoje
+
+  const newCount = streak.lastDate === yStr ? streak.count + 1 : 1;
+  const updated  = {
+    lastDate: today,
+    count:    newCount,
+    longest:  Math.max(streak.longest || 0, newCount),
+  };
+  localStorage.setItem(STREAK_KEY, JSON.stringify(updated));
+  return updated;
+}
+
+/** Lê a streak atual (zera se não houve atividade hoje ou ontem) */
+export function getStreak() {
+  const raw = localStorage.getItem(STREAK_KEY);
+  if (!raw) return { count: 0, longest: 0, active: false, lastDate: null };
+  const streak    = JSON.parse(raw);
+  const today     = new Date().toDateString();
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const isActive  = streak.lastDate === today || streak.lastDate === yesterday.toDateString();
+  return { ...streak, count: isActive ? streak.count : 0, active: streak.lastDate === today };
+}
+
+/* ════════════════════════════════════════
    SUPABASE SYNC
 ════════════════════════════════════════ */
 

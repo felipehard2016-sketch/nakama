@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { queryAniList, MEDIA_DETAILS } from '../lib/anilist';
-import { getMedia, saveMedia, syncItemToSupabase } from '../lib/storage';
+import { getMedia, saveMedia, syncItemToSupabase, updateStreak } from '../lib/storage';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useTitle } from '../hooks/useTitle';
@@ -1396,6 +1396,7 @@ export default function AnimeDetail() {
     };
 
     const saved = saveMedia(id, item);
+    updateStreak(); /* registra atividade diária para streak */
 
     /* Não sincroniza na montagem inicial */
     if (!didMountRef.current) { didMountRef.current = true; return; }
