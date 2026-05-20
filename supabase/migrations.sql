@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS public.episode_progress (
 
 ALTER TABLE public.episode_progress ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "episode_progress_own"
+DROP POLICY IF EXISTS "episode_progress_own" ON public.episode_progress;
+CREATE POLICY "episode_progress_own"
   ON public.episode_progress
   FOR ALL USING (auth.uid() = user_id);
 
@@ -38,13 +39,16 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
 
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "profiles_select_all"
+DROP POLICY IF EXISTS "profiles_select_all" ON public.user_profiles;
+CREATE POLICY "profiles_select_all"
   ON public.user_profiles FOR SELECT USING (true);
 
-CREATE POLICY IF NOT EXISTS "profiles_update_own"
+DROP POLICY IF EXISTS "profiles_update_own" ON public.user_profiles;
+CREATE POLICY "profiles_update_own"
   ON public.user_profiles FOR UPDATE USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "profiles_insert_own"
+DROP POLICY IF EXISTS "profiles_insert_own" ON public.user_profiles;
+CREATE POLICY "profiles_insert_own"
   ON public.user_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Trigger: cria perfil automaticamente quando usuário é criado
@@ -84,16 +88,20 @@ CREATE TABLE IF NOT EXISTS public.anime_reviews (
 
 ALTER TABLE public.anime_reviews ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "reviews_select_all"
+DROP POLICY IF EXISTS "reviews_select_all" ON public.anime_reviews;
+CREATE POLICY "reviews_select_all"
   ON public.anime_reviews FOR SELECT USING (true);
 
-CREATE POLICY IF NOT EXISTS "reviews_insert_own"
+DROP POLICY IF EXISTS "reviews_insert_own" ON public.anime_reviews;
+CREATE POLICY "reviews_insert_own"
   ON public.anime_reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "reviews_update_own"
+DROP POLICY IF EXISTS "reviews_update_own" ON public.anime_reviews;
+CREATE POLICY "reviews_update_own"
   ON public.anime_reviews FOR UPDATE USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "reviews_delete_own"
+DROP POLICY IF EXISTS "reviews_delete_own" ON public.anime_reviews;
+CREATE POLICY "reviews_delete_own"
   ON public.anime_reviews FOR DELETE USING (auth.uid() = user_id);
 
 CREATE INDEX IF NOT EXISTS anime_reviews_media_id
@@ -101,16 +109,18 @@ CREATE INDEX IF NOT EXISTS anime_reviews_media_id
 
 -- ─── 5. Tabela review_votes ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.review_votes (
-  review_id  BIGINT  NOT NULL REFERENCES public.anime_reviews(id) ON DELETE CASCADE,
-  user_id    UUID    NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  review_id  BIGINT   NOT NULL REFERENCES public.anime_reviews(id) ON DELETE CASCADE,
+  user_id    UUID     NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   vote       SMALLINT NOT NULL CHECK (vote IN (-1, 1)),
   PRIMARY KEY (review_id, user_id)
 );
 
 ALTER TABLE public.review_votes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "votes_select_all"
+DROP POLICY IF EXISTS "votes_select_all" ON public.review_votes;
+CREATE POLICY "votes_select_all"
   ON public.review_votes FOR SELECT USING (true);
 
-CREATE POLICY IF NOT EXISTS "votes_upsert_own"
+DROP POLICY IF EXISTS "votes_upsert_own" ON public.review_votes;
+CREATE POLICY "votes_upsert_own"
   ON public.review_votes FOR ALL USING (auth.uid() = user_id);
