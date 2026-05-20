@@ -2,7 +2,93 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getByListStatus, getAllMedia } from '../lib/storage';
 import { useTitle } from '../hooks/useTitle';
-import { List, Star, Search, LayoutGrid, AlignJustify } from 'lucide-react';
+import { List, Star, Search, LayoutGrid, AlignJustify, Download } from 'lucide-react';
+
+/* ─── Exportar lista ─── */
+function exportList(format) {
+  const all = getAllMedia().filter(m => m.listStatus);
+  if (format === 'json') {
+    const blob = new Blob([JSON.stringify(all, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'nakama-lista.json'; a.click();
+    URL.revokeObjectURL(url);
+  } else {
+    const headers = ['id','title_romaji','title_english','format','status','listStatus','progress','episodes','chapters','averageScore','userScore','favorited','seasonYear','addedAt'];
+    const rows = all.map(m => [
+      m.id,
+      `"${(m.title?.romaji || '').replace(/"/g,'""')}"`,
+      `"${(m.title?.english || '').replace(/"/g,'""')}"`,
+      m.format || '',
+      m.status || '',
+      m.listStatus || '',
+      m.progress || 0,
+      m.episodes || '',
+      m.chapters || '',
+      m.averageScore || '',
+      m.userScore || '',
+      m.favorited ? 'true' : 'false',
+      m.seasonYear || '',
+      m.addedAt ? new Date(m.addedAt).toISOString().split('T')[0] : '',
+    ].join(','));
+    const csv  = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'nakama-lista.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+}
+
+/* ─── Menu de exportação ─── */
+function ExportMenu({ total }) {
+  const [open, setOpen] = useState(false);
+  if (!total) return null;
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Exportar lista"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          height: 34, padding: '0 10px',
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: 8, color: 'var(--text-muted)', fontSize: 12, fontWeight: 500,
+          transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)'; }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
+        <Download size={13} /> Exportar
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 20,
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 10, overflow: 'hidden', minWidth: 140,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+          }}>
+            {[
+              { fmt: 'csv',  label: 'Exportar como CSV' },
+              { fmt: 'json', label: 'Exportar como JSON' },
+            ].map(({ fmt, label }) => (
+              <button key={fmt} onClick={() => { exportList(fmt); setOpen(false); }} style={{
+                width: '100%', padding: '10px 16px', textAlign: 'left',
+                fontSize: 13, color: 'var(--text-secondary)',
+                transition: 'background 0.1s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(124,58,237,0.08)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 const TABS = [
   { value: 'WATCHING',      label: 'Assistindo',  color: '#a78bfa' },
@@ -238,6 +324,11 @@ export default function MyList() {
                 />
               </div>
             )}
+            {/* Exportar */}
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <ExportMenu total={total} />
+            </div>
+
             {/* Toggle grid/lista */}
             <div style={{ display: 'flex', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
               {[

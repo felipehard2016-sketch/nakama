@@ -3,7 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { queryAniList, SEASONAL_ANIME } from '../lib/anilist';
 import { getAllMedia } from '../lib/storage';
 import { useTitle } from '../hooks/useTitle';
-import { Calendar as CalIcon, Clock, Star, Wifi, List } from 'lucide-react';
+import { Calendar as CalIcon, Clock, Star, Wifi, List, CalendarPlus } from 'lucide-react';
+
+/* ─── Gera link do Google Calendar ─── */
+function makeGoogleCalLink(anime) {
+  const airingAt = anime.nextAiringEpisode?.airingAt;
+  if (!airingAt) return null;
+  const title   = anime.title?.english || anime.title?.romaji || 'Anime';
+  const ep      = anime.nextAiringEpisode?.episode;
+  const start   = new Date(airingAt * 1000);
+  const end     = new Date(start.getTime() + 30 * 60 * 1000); // +30min
+  const fmt     = d => d.toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
+  const params  = new URLSearchParams({
+    action: 'TEMPLATE',
+    text:   `${title} — Ep ${ep}`,
+    dates:  `${fmt(start)}/${fmt(end)}`,
+    details: `Episódio ${ep} de ${title} no ar!`,
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
 
 /* ── Dias da semana Seg→Dom ── */
 const WEEK = [
@@ -147,11 +165,32 @@ function CalCard({ anime, listStatus }) {
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           marginBottom: time ? 4 : 0,
         }}>{title}</p>
-        {time && (
-          <p style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: 'var(--text-muted)' }}>
-            <Clock size={8} /> {time}
-          </p>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+          {time && (
+            <p style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: 'var(--text-muted)' }}>
+              <Clock size={8} /> {time}
+            </p>
+          )}
+          {/* Google Calendar link */}
+          {anime.nextAiringEpisode?.airingAt && (() => {
+            const gcal = makeGoogleCalLink(anime);
+            return gcal ? (
+              <a href={gcal} target="_blank" rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                title="Adicionar ao Google Calendar"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border)',
+                  color: 'var(--text-muted)', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#4285f4'; e.currentTarget.style.color = '#4285f4'; e.currentTarget.style.background = 'rgba(66,133,244,0.12)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}>
+                <CalendarPlus size={11} />
+              </a>
+            ) : null;
+          })()}
+        </div>
       </div>
     </div>
   );
