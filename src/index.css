@@ -1,0 +1,162 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --purple:        #7c3aed;
+  --purple-light:  #a78bfa;
+  --purple-dark:   #5b21b6;
+  --purple-glow:   rgba(124, 58, 237, 0.35);
+  --blue:          #2563eb;
+  --blue-light:    #60a5fa;
+
+  --bg:            #0a0a0f;
+  --bg-sidebar:    #0e0e18;
+  --bg-card:       #0f0f1a;
+  --bg-card-hover: #161625;
+  --border:        rgba(124, 58, 237, 0.22);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+
+  --text:          #f1f0ff;
+  --text-secondary:#a49bc2;
+  --text-muted:    #5c5478;
+
+  --sidebar-width: 248px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root { display: flex; min-height: 100vh; }
+
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; border: none; background: none; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.3); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--purple); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+/* Remove setas nativas do input[type=number] */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+
+/* ════════════════════════════════════════
+   RESPONSIVIDADE MOBILE
+════════════════════════════════════════ */
+@media (max-width: 767px) {
+  :root { --sidebar-width: 0px; }
+
+  /* Sidebar desliza da esquerda */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 248px !important;
+    box-shadow: 4px 0 32px rgba(0,0,0,0.6);
+  }
+  .sidebar[style*="translateX(0)"] {
+    transform: translateX(0) !important;
+  }
+
+  /* Botão hamburger visível */
+  .hamburger-btn {
+    display: flex !important;
+  }
+
+  /* Main sem margin-left (sidebar está fora do fluxo em mobile) */
+  .main-content {
+    margin-left: 0 !important;
+    padding-top: 64px; /* espaço para o hamburger button */
+  }
+
+  /* Calendário: 2 colunas em mobile */
+  .calendar-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Cards: 2 colunas */
+  .grid-4col {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .grid-3col {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Padding reduzido */
+  .page-padding {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Banner mais curto */
+  .anime-banner {
+    height: 220px !important;
+  }
+
+  /* Cover + info empilhados */
+  .anime-hero {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 16px !important;
+  }
+  .anime-hero img {
+    width: 140px !important;
+  }
+
+  /* Stats chips em linha */
+  .stat-row {
+    flex-wrap: wrap !important;
+  }
+
+  /* Botões de controle de episódio maiores para toque */
+  .ep-check-btn {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  /* Cabeçalho da página com menos padding */
+  .page-header {
+    padding: 20px 16px 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* 1 coluna em telas muito pequenas */
+  .grid-4col,
+  .grid-3col {
+    grid-template-columns: 1fr !important;
+  }
+  .calendar-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Overlay só aparece em mobile */
+.mobile-overlay {
+  display: none;
+}
+@media (max-width: 767px) {
+  .mobile-overlay {
+    display: block;
+  }
+}
