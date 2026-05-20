@@ -75,14 +75,14 @@ export const TRENDING_ANIME = `
 
 export const SEARCH_MEDIA = `
   query (
-    $search: String, $type: MediaType, $genre: String,
+    $search: String, $type: MediaType, $genre: String, $tag: String,
     $status: MediaStatus, $year: Int, $minScore: Int,
     $sort: [MediaSort], $page: Int, $perPage: Int
   ) {
     Page(page: $page, perPage: $perPage) {
       pageInfo { total hasNextPage currentPage }
       media(
-        search: $search, type: $type, genre: $genre,
+        search: $search, type: $type, genre: $genre, tag: $tag,
         status: $status, seasonYear: $year,
         averageScore_greater: $minScore,
         sort: $sort, isAdult: false
@@ -249,6 +249,77 @@ export const STUDIO_DETAILS = `
           status
           genres
           type
+        }
+      }
+    }
+  }
+`;
+
+export const SEARCH_CHARACTERS = `
+  query ($search: String, $page: Int, $perPage: Int) {
+    Page(page: $page, perPage: $perPage) {
+      pageInfo { total hasNextPage }
+      characters(search: $search, sort: SEARCH_MATCH) {
+        id
+        name { full native }
+        image { large }
+        favourites
+        media(perPage: 4, sort: POPULARITY_DESC) {
+          nodes {
+            id
+            title { romaji english }
+            coverImage { large }
+            format
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const SEARCH_STAFF = `
+  query ($search: String, $page: Int, $perPage: Int) {
+    Page(page: $page, perPage: $perPage) {
+      pageInfo { total hasNextPage }
+      staff(search: $search, sort: SEARCH_MATCH) {
+        id
+        name { full native }
+        image { large }
+        languageV2
+        primaryOccupations
+        favourites
+        characters(perPage: 4, sort: FAVOURITES_DESC) {
+          nodes {
+            id
+            name { full }
+            image { large }
+            media(perPage: 1, sort: POPULARITY_DESC) {
+              nodes { id title { romaji english } coverImage { large } }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const SEARCH_STUDIOS = `
+  query ($search: String, $page: Int, $perPage: Int) {
+    Page(page: $page, perPage: $perPage) {
+      pageInfo { total hasNextPage }
+      studios(search: $search, sort: SEARCH_MATCH) {
+        id
+        name
+        isAnimationStudio
+        favourites
+        media(perPage: 4, sort: POPULARITY_DESC, isAdult: false) {
+          nodes {
+            id
+            title { romaji english }
+            coverImage { large }
+            averageScore
+            seasonYear
+          }
         }
       }
     }
