@@ -46,6 +46,13 @@ const SORTS = [
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR - 1959 }, (_, i) => CURRENT_YEAR - i);
 
+const COUNTRIES = [
+  { value: 'JP', label: '🇯🇵 Anime (Japão)' },
+  { value: 'KR', label: '🇰🇷 Manhwa (Coreia)' },
+  { value: 'CN', label: '🇨🇳 Manhua (China)' },
+  { value: 'TW', label: '🇹🇼 Manhua (Taiwan)' },
+];
+
 const SEARCH_MODES = [
   { key: 'media',      label: 'Anime / Mangá', icon: SearchIcon },
   { key: 'characters', label: 'Personagens',   icon: User },
@@ -446,6 +453,7 @@ export default function Search() {
   const [status, setStatus] = useState('');
   const [score, setScore]   = useState('');
   const [sort, setSort]     = useState('POPULARITY_DESC');
+  const [country, setCountry] = useState('');
   const [hideWatched, setHideWatched] = useState(false);
 
   const [results, setResults]         = useState([]);
@@ -481,16 +489,17 @@ export default function Search() {
   /* ── Busca de media ── */
   const buildMediaVars = useCallback((p = 1) => ({
     search:   debouncedQuery || undefined,
-    type,
+    type:     country ? 'MANGA' : type,  // manhwa/manhua are MANGA type in AniList
     genre:    genre || undefined,
     tag:      tag || undefined,
     year:     year ? parseInt(year) : undefined,
     status:   status || undefined,
     minScore: score ? parseInt(score) : undefined,
+    country:  country || undefined,
     sort:     [sort],
     page:     p,
     perPage:  24,
-  }), [debouncedQuery, type, genre, tag, year, status, score, sort]);
+  }), [debouncedQuery, type, genre, tag, year, status, score, sort, country]);
 
   useEffect(() => {
     if (mode !== 'media') return;
@@ -506,7 +515,7 @@ export default function Search() {
       })
       .catch(err => { console.error(err); setError('Erro ao carregar resultados.'); })
       .finally(() => setLoading(false));
-  }, [debouncedQuery, type, genre, tag, year, status, score, sort, mode]);
+  }, [debouncedQuery, type, genre, tag, year, status, score, sort, country, mode]);
 
   const loadMoreMedia = () => {
     const next = page + 1;
@@ -556,11 +565,12 @@ export default function Search() {
 
   /* ── Chips de filtros ativos ── */
   const activeChips = [
-    genre  && { label: genre, onRemove: () => setGenre('') },
-    tag    && { label: `Tag: ${tag}`, onRemove: () => setTag('') },
-    year   && { label: year, onRemove: () => setYear('') },
-    status && { label: STATUSES.find(s => s.value === status)?.label, onRemove: () => setStatus('') },
-    score  && { label: `Nota ≥ ${(parseInt(score) + 1) / 10}`, onRemove: () => setScore('') },
+    genre   && { label: genre, onRemove: () => setGenre('') },
+    tag     && { label: `Tag: ${tag}`, onRemove: () => setTag('') },
+    year    && { label: year, onRemove: () => setYear('') },
+    status  && { label: STATUSES.find(s => s.value === status)?.label, onRemove: () => setStatus('') },
+    score   && { label: `Nota ≥ ${(parseInt(score) + 1) / 10}`, onRemove: () => setScore('') },
+    country && { label: COUNTRIES.find(c => c.value === country)?.label || country, onRemove: () => setCountry('') },
   ].filter(Boolean);
 
   /* ── Atalho de teclado ── */
@@ -699,6 +709,11 @@ export default function Search() {
               {SORTS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </StyledSelect>
 
+            {/* Origem */}
+            <StyledSelect value={country} onChange={setCountry} placeholder="Origem">
+              {COUNTRIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </StyledSelect>
+
             {/* Ocultar assistidos */}
             <button onClick={() => setHideWatched(p => !p)} style={{
               display: 'flex', alignItems: 'center', gap: 6,
@@ -738,7 +753,7 @@ export default function Search() {
               )}
               {activeChips.map((chip, i) => <ActiveChip key={i} label={chip.label} onRemove={chip.onRemove} />)}
               {activeChips.length > 1 && (
-                <button onClick={() => { setGenre(''); setYear(''); setStatus(''); setScore(''); setTag(''); }}
+                <button onClick={() => { setGenre(''); setYear(''); setStatus(''); setScore(''); setTag(''); setCountry(''); }}
                   style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'underline', padding: 0 }}>
                   Limpar tudo
                 </button>

@@ -26,6 +26,8 @@ const DECADES = [
 const TABS = [
   { key: 'anime',   label: 'Anime',   icon: Tv,       type: 'ANIME', format: null, sort: 'SCORE_DESC' },
   { key: 'manga',   label: 'Mangá',   icon: BookOpen, type: 'MANGA', format: null, sort: 'SCORE_DESC' },
+  { key: 'manhwa',  label: 'Manhwa',  icon: BookOpen, type: 'MANGA', format: null, sort: 'SCORE_DESC', country: 'KR' },
+  { key: 'manhua',  label: 'Manhua',  icon: BookOpen, type: 'MANGA', format: null, sort: 'SCORE_DESC', country: 'CN' },
   { key: 'movies',  label: 'Filmes',  icon: Film,     type: 'ANIME', format: 'MOVIE', sort: 'SCORE_DESC' },
   { key: 'ova',     label: 'OVA/ONA', icon: Star,     type: 'ANIME', format: 'OVA', sort: 'SCORE_DESC' },
   { key: 'popular', label: 'Popular', icon: TrendingUp, type: 'ANIME', format: null, sort: 'POPULARITY_DESC' },
@@ -37,13 +39,13 @@ const TABS = [
 const RANKINGS_QUERY = `
   query ($type: MediaType, $format: MediaFormat, $genre: String,
          $yearStart: Int, $yearEnd: Int, $sort: [MediaSort],
-         $page: Int, $perPage: Int, $formatIn: [MediaFormat]) {
+         $page: Int, $perPage: Int, $formatIn: [MediaFormat], $country: CountryCode) {
     Page(page: $page, perPage: $perPage) {
       pageInfo { hasNextPage total }
       media(
         type: $type, format: $format, genre: $genre,
         startDate_greater: $yearStart, startDate_lesser: $yearEnd,
-        sort: $sort, isAdult: false, formatIn: $formatIn
+        sort: $sort, isAdult: false, formatIn: $formatIn, countryOfOrigin: $country
       ) {
         id
         title { romaji english }
@@ -77,6 +79,9 @@ function buildVars(tab, genre, decade, page) {
   if (tab.key === 'ova') {
     // OVA, ONA, Special grouped
     return { ...base, type: 'ANIME', formatIn: ['OVA','ONA','SPECIAL'] };
+  }
+  if (tab.country) {
+    return { ...base, type: tab.type, country: tab.country };
   }
   return {
     ...base,

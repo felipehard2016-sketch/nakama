@@ -76,7 +76,7 @@ export const TRENDING_ANIME = `
 export const SEARCH_MEDIA = `
   query (
     $search: String, $type: MediaType, $genre: String, $tag: String,
-    $status: MediaStatus, $year: Int, $minScore: Int,
+    $status: MediaStatus, $year: Int, $minScore: Int, $country: CountryCode,
     $sort: [MediaSort], $page: Int, $perPage: Int
   ) {
     Page(page: $page, perPage: $perPage) {
@@ -84,7 +84,7 @@ export const SEARCH_MEDIA = `
       media(
         search: $search, type: $type, genre: $genre, tag: $tag,
         status: $status, seasonYear: $year,
-        averageScore_greater: $minScore,
+        averageScore_greater: $minScore, countryOfOrigin: $country,
         sort: $sort, isAdult: false
       ) {
         id
