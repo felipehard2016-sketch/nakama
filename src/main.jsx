@@ -2,6 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { applyStoredTheme } from './hooks/useTheme.js'
+
+applyStoredTheme(); /* aplica antes do React montar para evitar flash */
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

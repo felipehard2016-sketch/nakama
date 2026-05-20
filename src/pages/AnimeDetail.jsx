@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useTitle } from '../hooks/useTitle';
 import { getWatchedEpisodes, markEpisode } from '../lib/episodeProgress';
-import { getJikanThemes, searchJikanByTitle } from '../lib/jikan';
+import { getJikanThemes, searchJikanByTitle, getJikanNews } from '../lib/jikan';
 import { getReviews, getUserReview, upsertReview, deleteReview, voteReview } from '../lib/reviews';
 import {
   Star, ArrowLeft, Play, BookOpen, Heart, Plus, Check,
@@ -1013,6 +1013,75 @@ function ThemesSection({ themes }) {
   );
 }
 
+/* ─── Aba de Notícias (Jikan) ─── */
+function NewsTab({ news, loading }) {
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} style={{ display: 'flex', gap: 14, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+            <div className="skeleton" style={{ width: 80, height: 80, borderRadius: 8, flexShrink: 0 }} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
+              <div className="skeleton" style={{ height: 14, borderRadius: 5, width: '70%' }} />
+              <div className="skeleton" style={{ height: 11, borderRadius: 5, width: '90%' }} />
+              <div className="skeleton" style={{ height: 11, borderRadius: 5, width: '40%' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!news.length) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', fontSize: 14 }}>
+        Nenhuma notícia encontrada para este anime.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {news.map((item, i) => {
+        const date = item.date ? new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+        const excerpt = item.excerpt ? item.excerpt.slice(0, 200) + (item.excerpt.length > 200 ? '…' : '') : '';
+        return (
+          <a key={i} href={item.url} target="_blank" rel="noopener noreferrer" style={{
+            display: 'flex', gap: 14,
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 12, padding: '14px 16px', textDecoration: 'none',
+            transition: 'border-color 0.15s, background 0.1s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)'; e.currentTarget.style.background = 'rgba(124,58,237,0.04)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)'; }}>
+            {item.images?.jpg?.image_url && (
+              <img src={item.images.jpg.image_url} alt={item.title} loading="lazy"
+                style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, flexShrink: 0, border: '1px solid var(--border)' }} />
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {item.title}
+              </p>
+              {excerpt && (
+                <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {excerpt}
+                </p>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {date && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{date}</span>}
+                {item.author_username && (
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>por {item.author_username}</span>
+                )}
+                <span style={{ fontSize: 11, color: 'var(--purple-light)', marginLeft: 'auto' }}>Ler na MAL →</span>
+              </div>
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ─── Aba de Reviews ─── */
 function ReviewsTab({ mediaId, mediaCoverImage }) {
   const { user } = useAuth();
@@ -1322,6 +1391,8 @@ export default function AnimeDetail() {
   const [watchedEps, setWatchedEps]     = useState(new Set());
   const [themes, setThemes]             = useState(null); // { openings, endings }
   const [reviewCount, setReviewCount]   = useState(0);
+  const [news, setNews]                 = useState([]);
+  const [newsLoading, setNewsLoading]   = useState(false);
 
   /* Controla se já houve uma mudança do usuário (evita sync no carregamento inicial) */
   const didMountRef  = useRef(false);
@@ -1355,17 +1426,22 @@ export default function AnimeDetail() {
           setWatchedEps(eps);
         }
 
-        /* Buscar temas (OP/ED) via Jikan usando idMal */
+        /* Buscar temas (OP/ED) e notícias via Jikan */
+        const fetchJikanData = async (malId) => {
+          getJikanThemes(malId).then(t => { if (t) setThemes(t); });
+          setNewsLoading(true);
+          getJikanNews(malId).then(n => { if (n) setNews(n); }).finally(() => setNewsLoading(false));
+        };
+
         if (m.idMal) {
-          getJikanThemes(m.idMal).then(t => { if (t) setThemes(t); });
+          fetchJikanData(m.idMal);
         } else {
           /* Fallback: busca por título */
           const title = m.title.english || m.title.romaji;
           searchJikanByTitle(title).then(results => {
             const match = results[0];
-            if (match?.mal_id) {
-              getJikanThemes(match.mal_id).then(t => { if (t) setThemes(t); });
-            }
+            if (match?.mal_id) fetchJikanData(match.mal_id);
+            else setNewsLoading(false);
           });
         }
       })
@@ -1777,6 +1853,7 @@ export default function AnimeDetail() {
               { key: 'sobre',     label: 'Sobre' },
               { key: 'episodios', label: 'Episódios', badge: media.episodes ? `${watchedEps.size}/${media.episodes}` : null },
               { key: 'reviews',   label: 'Reviews' },
+              ...(isAnime ? [{ key: 'noticias', label: 'Notícias', badge: news.length > 0 ? String(news.length) : null }] : []),
             ].map(tab => (
               <button
                 key={tab.key}
@@ -1820,6 +1897,13 @@ export default function AnimeDetail() {
         {activeTab === 'reviews' && (
           <section style={{ marginTop: 32, paddingBottom: 40 }}>
             <ReviewsTab mediaId={parseInt(id)} mediaCoverImage={media.coverImage} />
+          </section>
+        )}
+
+        {/* ── Aba: Notícias ── */}
+        {activeTab === 'noticias' && isAnime && (
+          <section style={{ marginTop: 32, paddingBottom: 40 }}>
+            <NewsTab news={news} loading={newsLoading} />
           </section>
         )}
 

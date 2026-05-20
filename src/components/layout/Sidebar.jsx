@@ -1,10 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Search, List, Star, BarChart2, Calendar, User, Tv,
-  LogIn, LogOut, ChevronRight, Compass, Sparkles, Trophy,
+  LogIn, LogOut, ChevronRight, Compass, Sparkles, Trophy, Sun, Moon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAllMedia } from '../../lib/storage';
+import { useTheme } from '../../hooks/useTheme';
 
 const MAIN_LINKS = [
   { to: '/', icon: Home, label: 'Home' },
@@ -91,6 +92,7 @@ export default function Sidebar({ mobileOpen = false }) {
   const navigate = useNavigate();
   const allMedia = getAllMedia();
   const { label: levelLabel, level } = getLevel(allMedia);
+  const { theme, toggle: toggleTheme } = useTheme();
 
   /* Iniciais do avatar */
   const initials = displayName
@@ -160,6 +162,27 @@ export default function Sidebar({ mobileOpen = false }) {
         </nav>
 
         <div style={{ margin: '16px 16px 0', borderTop: '1px solid var(--border-subtle)' }} />
+      </div>
+
+      {/* Tema toggle */}
+      <div style={{ margin: '0 10px 8px', display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-muted)', fontSize: 12,
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+        >
+          {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+          {theme === 'dark' ? 'Claro' : 'Escuro'}
+        </button>
       </div>
 
       {/* Rodapé — Avatar ou Login */}
