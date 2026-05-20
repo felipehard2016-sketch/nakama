@@ -1,17 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { queryAniList, TRENDING_ANIME, SEASONAL_ANIME, TOP_ANIME, TOP_MANGA } from '../lib/anilist';
+import { queryAniList, HOME_BATCH_QUERY } from '../lib/anilist';
 import {
   getUserTopGenres,
   fetchRecommendationsByGenre,
-  getSavedMediaIds,
-  getRecommendationReason,
 } from '../lib/recommendations';
 import AnimeCard from '../components/ui/AnimeCard';
 import { useTitle } from '../hooks/useTitle';
 import {
   TrendingUp, Tv, ChevronLeft, ChevronRight,
-  Plus, Info, Star, BookOpen, Flame, Sparkles, Compass,
+  Info, Star, BookOpen, Flame, Sparkles, Compass,
 } from 'lucide-react';
 
 function getCurrentSeason() {
@@ -22,18 +20,115 @@ function getCurrentSeason() {
   return 'FALL';
 }
 
-/* ─── Loading Skeleton ─── */
-function Spinner() {
+/* ════════════════════════════════════════
+   SKELETON COMPONENTS
+════════════════════════════════════════ */
+function SkeletonBox({ w, h, r = 8, style = {} }) {
+  return <div className="skeleton" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...style }} />;
+}
+
+function SkeletonCarousel({ cardW = 150, cardH = 225, count = 7 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 14 }}>
-      <div style={{
-        width: 44, height: 44,
-        border: '3px solid rgba(124,58,237,0.2)',
-        borderTop: '3px solid var(--purple)',
-        borderRadius: '50%',
-        animation: 'spin 0.8s linear infinite',
-      }} />
-      <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Carregando Nakama...</p>
+    <section style={{ marginBottom: 48 }}>
+      {/* header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18, padding: '0 40px' }}>
+        <SkeletonBox w={18} h={18} r={4} />
+        <SkeletonBox w={160} h={20} r={6} />
+      </div>
+      {/* cards */}
+      <div style={{ display: 'flex', gap: 14, paddingInline: '40px', overflowX: 'hidden' }}>
+        {Array.from({ length: count }).map((_, i) => (
+          <SkeletonBox key={i} w={cardW} h={cardH} r={12} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SkeletonRankRow() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
+      <SkeletonBox w={22} h={16} r={4} />
+      <SkeletonBox w={36} h={50} r={5} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <SkeletonBox w="80%" h={13} r={4} />
+        <SkeletonBox w="50%" h={11} r={4} />
+      </div>
+    </div>
+  );
+}
+
+function SkeletonRankList() {
+  return (
+    <div style={{
+      flex: 1, minWidth: 0,
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
+      borderRadius: 16, overflow: 'hidden',
+    }}>
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'rgba(124,58,237,0.06)', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <SkeletonBox w={16} h={16} r={4} />
+        <SkeletonBox w={100} h={16} r={4} />
+      </div>
+      {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
+    </div>
+  );
+}
+function SkeletonRow() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
+      <SkeletonBox w={22} h={16} r={4} />
+      <SkeletonBox w={36} h={50} r={5} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <SkeletonBox w="78%" h={13} r={4} />
+        <SkeletonBox w="45%" h={11} r={4} />
+      </div>
+    </div>
+  );
+}
+
+function HomeSkeleton() {
+  return (
+    <div style={{ animation: 'fadeIn 0.3s ease' }}>
+      {/* Hero skeleton */}
+      <div style={{ height: 480, background: 'var(--bg-card)', position: 'relative', overflow: 'hidden' }}>
+        <div className="skeleton" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} />
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(to right, rgba(10,10,15,0.92) 30%, rgba(10,10,15,0.4) 100%)',
+        }} />
+        <div style={{ position: 'absolute', bottom: 60, left: 48, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <SkeletonBox w={90} h={22} r={20} />
+            <SkeletonBox w={60} h={22} r={20} />
+          </div>
+          <SkeletonBox w={340} h={46} r={8} />
+          <SkeletonBox w={220} h={24} r={8} />
+          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <SkeletonBox w={140} h={44} r={10} />
+            <SkeletonBox w={120} h={44} r={10} />
+          </div>
+        </div>
+      </div>
+
+      {/* Carousels */}
+      <div style={{ paddingTop: 40 }}>
+        <SkeletonCarousel cardW={200} cardH={295} count={6} />
+        <SkeletonCarousel cardW={150} cardH={225} count={8} />
+        <SkeletonCarousel cardW={150} cardH={225} count={8} />
+      </div>
+
+      {/* Rankings */}
+      <section style={{ padding: '0 40px 56px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18 }}>
+          <SkeletonBox w={18} h={18} r={4} />
+          <SkeletonBox w={120} h={20} r={6} />
+        </div>
+        <div style={{ display: 'flex', gap: 20 }}>
+          <SkeletonRankList />
+          <SkeletonRankList />
+        </div>
+      </section>
     </div>
   );
 }
@@ -55,7 +150,7 @@ function Hero({ media }) {
 
   return (
     <div style={{ position: 'relative', height: 480, overflow: 'hidden' }}>
-      {/* Background */}
+      {/* Background — eager load para o hero (above the fold) */}
       <div
         key={current.id}
         style={{
@@ -83,16 +178,13 @@ function Hero({ media }) {
         <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
           <div style={{
             background: 'linear-gradient(90deg, var(--purple), var(--blue))',
-            borderRadius: 20,
-            padding: '3px 12px',
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
-            color: '#fff',
+            borderRadius: 20, padding: '3px 12px',
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#fff',
           }}>
             EM DESTAQUE
           </div>
           <div style={{
-            background: 'rgba(255,255,255,0.08)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: 20, padding: '3px 10px',
             fontSize: 11, color: 'var(--text-secondary)',
           }}>
@@ -100,8 +192,7 @@ function Hero({ media }) {
           </div>
           {current.seasonYear && (
             <div style={{
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: 20, padding: '3px 10px',
               fontSize: 11, color: 'var(--text-secondary)',
             }}>
@@ -112,12 +203,9 @@ function Hero({ media }) {
 
         {/* Title */}
         <h1 style={{
-          fontSize: 'clamp(28px, 3.5vw, 46px)',
-          fontWeight: 900,
-          lineHeight: 1.1,
-          letterSpacing: '-0.02em',
-          maxWidth: 560,
-          marginBottom: 12,
+          fontSize: 'clamp(28px, 3.5vw, 46px)', fontWeight: 900,
+          lineHeight: 1.1, letterSpacing: '-0.02em',
+          maxWidth: 560, marginBottom: 12,
           textShadow: '0 2px 20px rgba(0,0,0,0.5)',
         }}>
           {title}
@@ -137,12 +225,9 @@ function Hero({ media }) {
           <div style={{ display: 'flex', gap: 6 }}>
             {current.genres?.slice(0, 3).map(g => (
               <span key={g} style={{
-                background: 'rgba(124,58,237,0.2)',
-                border: '1px solid rgba(124,58,237,0.35)',
-                borderRadius: 20,
-                padding: '2px 10px',
-                fontSize: 11.5, color: 'var(--purple-light)',
-                fontWeight: 500,
+                background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.35)',
+                borderRadius: 20, padding: '2px 10px',
+                fontSize: 11.5, color: 'var(--purple-light)', fontWeight: 500,
               }}>{g}</span>
             ))}
           </div>
@@ -155,8 +240,7 @@ function Hero({ media }) {
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
               background: 'linear-gradient(90deg, var(--purple), #4f46e5)',
-              color: '#fff',
-              borderRadius: 10, padding: '11px 22px',
+              color: '#fff', borderRadius: 10, padding: '11px 22px',
               fontSize: 13.5, fontWeight: 700,
               boxShadow: '0 4px 20px rgba(124,58,237,0.4)',
               transition: 'opacity 0.15s',
@@ -165,22 +249,6 @@ function Hero({ media }) {
             onMouseLeave={e => e.currentTarget.style.opacity = '1'}
           >
             <Info size={15} /> Ver Detalhes
-          </button>
-          <button
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(8px)',
-              color: '#fff',
-              borderRadius: 10, padding: '11px 20px',
-              fontSize: 13.5, fontWeight: 600,
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-          >
-            <Plus size={15} /> Adicionar à Lista
           </button>
         </div>
 
@@ -191,13 +259,10 @@ function Hero({ media }) {
               key={i}
               onClick={() => setIdx(i)}
               style={{
-                width: i === idx ? 24 : 7,
-                height: 7,
+                width: i === idx ? 24 : 7, height: 7,
                 borderRadius: 4,
                 background: i === idx ? 'var(--purple)' : 'rgba(255,255,255,0.2)',
-                transition: 'all 0.3s',
-                border: 'none',
-                padding: 0,
+                transition: 'all 0.3s', border: 'none', padding: 0,
               }}
             />
           ))}
@@ -210,9 +275,7 @@ function Hero({ media }) {
 /* ─── Carrossel horizontal ─── */
 function Carousel({ title, icon: Icon, items, cardSize = 'md' }) {
   const ref = useRef(null);
-  const scroll = (dir) => {
-    ref.current?.scrollBy({ left: dir * 640, behavior: 'smooth' });
-  };
+  const scroll = (dir) => ref.current?.scrollBy({ left: dir * 640, behavior: 'smooth' });
 
   return (
     <section style={{ marginBottom: 48 }}>
@@ -228,11 +291,9 @@ function Carousel({ title, icon: Icon, items, cardSize = 'md' }) {
               onClick={() => scroll(i === 0 ? -1 : 1)}
               style={{
                 width: 32, height: 32, borderRadius: 8,
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--text-secondary)',
-                transition: 'all 0.15s',
+                color: 'var(--text-secondary)', transition: 'all 0.15s',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,0.2)'; e.currentTarget.style.borderColor = 'var(--purple)'; e.currentTarget.style.color = '#fff'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
@@ -245,16 +306,8 @@ function Carousel({ title, icon: Icon, items, cardSize = 'md' }) {
 
       <div
         ref={ref}
-        style={{
-          display: 'flex',
-          gap: 14,
-          overflowX: 'auto',
-          paddingInline: '40px',
-          paddingBottom: 8,
-          scrollbarWidth: 'none',
-        }}
+        style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingInline: '40px', paddingBottom: 8, scrollbarWidth: 'none' }}
       >
-        <style>{`.carousel-row::-webkit-scrollbar { display: none; }`}</style>
         {items.map(media => (
           <AnimeCard key={media.id} media={media} size={cardSize} />
         ))}
@@ -271,21 +324,17 @@ function RankingList({ title, icon: Icon, items, type }) {
       flex: 1, minWidth: 0,
       background: 'var(--bg-card)',
       border: '1px solid var(--border)',
-      borderRadius: 16,
-      overflow: 'hidden',
+      borderRadius: 16, overflow: 'hidden',
     }}>
-      {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        padding: '16px 20px',
-        borderBottom: '1px solid var(--border)',
+        padding: '16px 20px', borderBottom: '1px solid var(--border)',
         background: 'rgba(124,58,237,0.06)',
       }}>
         <Icon size={16} color="var(--purple-light)" />
         <h3 style={{ fontSize: 15, fontWeight: 700 }}>{title}</h3>
       </div>
 
-      {/* Items */}
       {items.slice(0, 10).map((media, i) => {
         const t = media.title.english || media.title.romaji;
         const score = media.averageScore ? (media.averageScore / 10).toFixed(1) : '—';
@@ -299,39 +348,27 @@ function RankingList({ title, icon: Icon, items, type }) {
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '11px 20px',
               borderBottom: i < 9 ? '1px solid var(--border-subtle)' : 'none',
-              cursor: 'pointer',
-              transition: 'background 0.15s',
+              cursor: 'pointer', transition: 'background 0.15s',
             }}
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(124,58,237,0.07)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
-            {/* Rank */}
-            <span style={{
-              width: 22, fontSize: 13, fontWeight: 800,
-              color: rankColor, textAlign: 'center', flexShrink: 0,
-            }}>
+            <span style={{ width: 22, fontSize: 13, fontWeight: 800, color: rankColor, textAlign: 'center', flexShrink: 0 }}>
               {i + 1}
             </span>
-
-            {/* Cover */}
             <img
               src={media.coverImage.large}
               alt=""
+              loading="lazy"
+              decoding="async"
               style={{ width: 36, height: 50, objectFit: 'cover', borderRadius: 5, flexShrink: 0 }}
             />
-
-            {/* Info */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{
-                fontSize: 13, fontWeight: 600, color: 'var(--text)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>{t}</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t}</p>
               <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
                 {media.format} · {type === 'anime' ? (media.episodes ? `${media.episodes} eps` : '—') : (media.chapters ? `${media.chapters} caps` : '—')}
               </p>
             </div>
-
-            {/* Score */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
               <Star size={10} fill="#fbbf24" color="#fbbf24" />
               <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>{score}</span>
@@ -350,28 +387,23 @@ function ApiOfflineBanner() {
       margin: '0 40px 32px',
       background: 'rgba(251,191,36,0.08)',
       border: '1px solid rgba(251,191,36,0.25)',
-      borderRadius: 12,
-      padding: '14px 18px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 12,
+      borderRadius: 12, padding: '14px 18px',
+      display: 'flex', alignItems: 'center', gap: 12,
     }}>
       <span style={{ fontSize: 20 }}>⚠️</span>
       <div>
         <p style={{ fontSize: 13.5, fontWeight: 600, color: '#fbbf24' }}>AniList API temporariamente indisponível</p>
         <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 3 }}>
-          Os servidores da AniList estão instáveis. As seções voltarão quando a API se recuperar. Tente recarregar a página em alguns minutos.
+          Os servidores da AniList estão instáveis. As seções voltarão quando a API se recuperar.
         </p>
       </div>
       <button
         onClick={() => window.location.reload()}
         style={{
           marginLeft: 'auto', flexShrink: 0,
-          background: 'rgba(251,191,36,0.12)',
-          border: '1px solid rgba(251,191,36,0.3)',
+          background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)',
           borderRadius: 8, padding: '7px 14px',
-          color: '#fbbf24', fontSize: 12.5, fontWeight: 600,
-          whiteSpace: 'nowrap',
+          color: '#fbbf24', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap',
         }}
       >
         Recarregar
@@ -380,26 +412,9 @@ function ApiOfflineBanner() {
   );
 }
 
-/* ─── Carousel vazio (quando API falhou) ─── */
-function CarouselEmpty({ title, icon: Icon }) {
-  return (
-    <section style={{ marginBottom: 48 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18, padding: '0 40px' }}>
-        <Icon size={18} color="var(--purple-light)" strokeWidth={2} />
-        <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>{title}</h2>
-      </div>
-      <div style={{ padding: '0 40px', display: 'flex', gap: 14, overflowX: 'hidden' }}>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="skeleton" style={{
-            width: 150, height: 225, borderRadius: 12, flexShrink: 0,
-          }} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ─── Home ─── */
+/* ════════════════════════════════════════
+   HOME
+════════════════════════════════════════ */
 export default function Home() {
   useTitle('Home');
   const navigate = useNavigate();
@@ -412,57 +427,51 @@ export default function Home() {
   const [loading, setLoading]   = useState(true);
   const [apiError, setApiError] = useState(false);
 
-  /* Gêneros favoritos do usuário (síncronos, do localStorage) */
   const topGenres = getUserTopGenres(3);
   const hasRecs   = topGenres.length > 0;
 
   useEffect(() => {
-    const year = new Date().getFullYear();
-    const genre = topGenres[0] || '';
+    const year  = new Date().getFullYear();
+    const season = getCurrentSeason();
+    const genre  = topGenres[0] || '';
     if (genre) setRecGenre(genre);
 
-    const baseQueries = [
-      queryAniList(TRENDING_ANIME, { page: 1, perPage: 20 }),
-      queryAniList(SEASONAL_ANIME, { season: getCurrentSeason(), year, page: 1, perPage: 20 }),
-      queryAniList(TOP_ANIME, { page: 1, perPage: 10 }),
-      queryAniList(TOP_MANGA, { page: 1, perPage: 10 }),
-    ];
+    /* ─── 1 request HTTP para trending + seasonal + top anime + top mangá ─── */
+    const homeQuery = queryAniList(HOME_BATCH_QUERY, { season, year });
 
-    /* Busca recomendações em paralelo se usuário tem gêneros salvos */
+    /* ─── recomendações em paralelo (só se usuário tem histórico) ─── */
     const recQuery = hasRecs
       ? fetchRecommendationsByGenre(genre, 16)
       : Promise.resolve([]);
 
-    Promise.allSettled([...baseQueries, recQuery]).then(([t, s, ta, tm, rec]) => {
-      if (t.status  === 'fulfilled') setTrending(t.value.Page.media);
-      if (s.status  === 'fulfilled') setSeasonal(s.value.Page.media);
-      if (ta.status === 'fulfilled') setTopAnime(ta.value.Page.media);
-      if (tm.status === 'fulfilled') setTopManga(tm.value.Page.media);
+    Promise.allSettled([homeQuery, recQuery]).then(([home, rec]) => {
+      if (home.status === 'fulfilled') {
+        const d = home.value;
+        setTrending(d.trending?.media  || []);
+        setSeasonal(d.seasonal?.media  || []);
+        setTopAnime(d.topAnime?.media  || []);
+        setTopManga(d.topManga?.media  || []);
+      } else {
+        console.warn('[Nakama] Home batch falhou:', home.reason?.message);
+        setApiError(true);
+      }
+
       if (rec.status === 'fulfilled' && Array.isArray(rec.value)) {
         setRecItems(rec.value.slice(0, 16));
       }
-
-      const allFailed = [t, s, ta, tm].every(r => r.status === 'rejected');
-      if (allFailed) setApiError(true);
-
-      [['TRENDING', t], ['SEASONAL', s], ['TOP_ANIME', ta], ['TOP_MANGA', tm]].forEach(([name, r]) => {
-        if (r.status === 'rejected') console.warn(`[Nakama] ${name} falhou:`, r.reason?.message);
-      });
     }).finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) return <Spinner />;
+  /* Mostra skeleton enquanto carrega (muito mais fluido que spinner) */
+  if (loading) return <HomeSkeleton />;
 
   return (
-    <div style={{ animation: 'fadeIn 0.4s ease' }}>
-      {/* Hero */}
+    <div style={{ animation: 'fadeIn 0.35s ease' }}>
       <Hero media={trending} />
 
-      {/* Conteúdo */}
       <div style={{ paddingTop: 40 }}>
         {apiError && <ApiOfflineBanner />}
 
-        {/* ── Recomendado para você ── */}
         {recItems.length > 0 && (
           <Carousel
             title={`Recomendado — ${recGenre}`}
@@ -472,15 +481,10 @@ export default function Home() {
           />
         )}
 
-        {trending.length > 0
-          ? <Carousel title="Em Alta" icon={Flame} items={trending} cardSize="lg" />
-          : <CarouselEmpty title="Em Alta" icon={Flame} />}
+        {trending.length > 0 && <Carousel title="Em Alta" icon={Flame} items={trending} cardSize="lg" />}
+        {seasonal.length > 0 && <Carousel title="Temporada Atual" icon={Tv} items={seasonal} cardSize="md" />}
 
-        {seasonal.length > 0
-          ? <Carousel title="Temporada Atual" icon={Tv} items={seasonal} cardSize="md" />
-          : <CarouselEmpty title="Temporada Atual" icon={Tv} />}
-
-        {/* ── Banner Descobrir ── */}
+        {/* Banner Descobrir */}
         <div style={{ margin: '0 40px 48px' }}>
           <div
             onClick={() => navigate('/discover')}

@@ -2,10 +2,32 @@ const ANILIST_URL = 'https://graphql.anilist.co';
 
 /* ── Cache em memória (TTL 5 min) ── */
 const _cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000;
+const MEM_TTL = 5 * 60 * 1000;
+
+/* ── Cache em localStorage (TTL 1 hora) ── */
+const LS_PREFIX = 'nakama_ql_';
+const LS_TTL    = 60 * 60 * 1000;
 
 function cacheKey(query, variables) {
   return JSON.stringify({ query: query.replace(/\s+/g, ' ').trim(), variables });
+}
+
+function lsGet(key) {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + key);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > LS_TTL) { localStorage.removeItem(LS_PREFIX + key); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function lsSet(key, data) {
+  try {
+    localStorage.setItem(LS_PREFIX + key, JSON.stringify({ data, ts: Date.now() }));
+  } catch {
+    /* localStorage cheio ou indisponível — silencioso */
+  }
 }
 
 /* ── Fetch com retry (até 2 tentativas, backoff 1s) ── */
@@ -28,10 +50,17 @@ async function fetchWithRetry(url, options, retries = 2) {
 export async function queryAniList(query, variables = {}, { cache = true } = {}) {
   const key = cacheKey(query, variables);
 
-  /* Cache hit */
   if (cache) {
+    /* 1. Cache em memória (5 min) — mais rápido */
     const hit = _cache.get(key);
-    if (hit && Date.now() - hit.ts < CACHE_TTL) return hit.data;
+    if (hit && Date.now() - hit.ts < MEM_TTL) return hit.data;
+
+    /* 2. Cache no localStorage (1 hora) — sobrevive ao reload */
+    const lsHit = lsGet(key);
+    if (lsHit) {
+      _cache.set(key, { data: lsHit, ts: Date.now() }); // promove para memória
+      return lsHit;
+    }
   }
 
   const res = await fetchWithRetry(ANILIST_URL, {
@@ -43,14 +72,87 @@ export async function queryAniList(query, variables = {}, { cache = true } = {})
   const json = await res.json();
   if (json.errors) throw new Error(json.errors[0].message);
 
-  if (cache) _cache.set(key, { data: json.data, ts: Date.now() });
+  if (cache) {
+    _cache.set(key, { data: json.data, ts: Date.now() });
+    lsSet(key, json.data);
+  }
   return json.data;
 }
 
-/** Invalida cache de uma query específica */
+/** Invalida cache de uma query específica (memória + localStorage) */
 export function invalidateCache(query, variables = {}) {
-  _cache.delete(cacheKey(query, variables));
+  const key = cacheKey(query, variables);
+  _cache.delete(key);
+  try { localStorage.removeItem(LS_PREFIX + key); } catch {}
 }
+
+/** Remove todas as entradas de cache AniList do localStorage */
+export function clearAniListCache() {
+  try {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(LS_PREFIX))
+      .forEach(k => localStorage.removeItem(k));
+  } catch {}
+  _cache.clear();
+}
+
+/* ── Query única que busca todos os dados da Home em 1 request ── */
+export const HOME_BATCH_QUERY = `
+  query HomeBatch($season: MediaSeason, $year: Int) {
+    trending: Page(page: 1, perPage: 20) {
+      media(sort: TRENDING_DESC, type: ANIME, isAdult: false) {
+        id
+        title { romaji english }
+        coverImage { large extraLarge color }
+        bannerImage
+        averageScore
+        episodes
+        status
+        genres
+        season
+        seasonYear
+        format
+        description(asHtml: false)
+      }
+    }
+    seasonal: Page(page: 1, perPage: 20) {
+      media(season: $season, seasonYear: $year, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+        id
+        title { romaji english }
+        coverImage { large extraLarge color }
+        bannerImage
+        averageScore
+        episodes
+        status
+        genres
+        format
+        nextAiringEpisode { airingAt episode }
+      }
+    }
+    topAnime: Page(page: 1, perPage: 10) {
+      media(sort: SCORE_DESC, type: ANIME, isAdult: false) {
+        id
+        title { romaji english }
+        coverImage { large extraLarge color }
+        averageScore
+        format
+        episodes
+        status
+      }
+    }
+    topManga: Page(page: 1, perPage: 10) {
+      media(sort: SCORE_DESC, type: MANGA, isAdult: false) {
+        id
+        title { romaji english }
+        coverImage { large extraLarge color }
+        averageScore
+        format
+        chapters
+        status
+      }
+    }
+  }
+`;
 
 export const TRENDING_ANIME = `
   query ($page: Int, $perPage: Int) {
