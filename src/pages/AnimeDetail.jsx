@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { queryAniList, MEDIA_DETAILS } from '../lib/anilist';
-import { getMedia, saveMedia, syncItemToSupabase, updateStreak } from '../lib/storage';
+import { getMedia, saveMedia, syncItemToSupabase, updateStreak, getCustomLists, addToCustomList, removeFromCustomList } from '../lib/storage';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useTitle } from '../hooks/useTitle';
@@ -14,7 +14,7 @@ import {
   ChevronDown, ChevronRight, ChevronLeft, Minus, Users,
   Clapperboard, Calendar, Clock, Tv, Hash, ExternalLink,
   RefreshCw, Film, Lock, Music, MessageSquare, ThumbsUp,
-  ThumbsDown, Pencil, Trash2, Eye, EyeOff, Timer,
+  ThumbsDown, Pencil, Trash2, Eye, EyeOff, Timer, ListPlus,
 } from 'lucide-react';
 
 /* Inline YouTube icon (lucide não tem) */
@@ -1369,6 +1369,108 @@ function ReviewsTab({ mediaId, mediaCoverImage }) {
   );
 }
 
+/* ─── Adicionar a Lista Personalizada ─── */
+function AddToCustomListButton({ mediaId }) {
+  const [open, setOpen]   = useState(false);
+  const [lists, setLists] = useState([]);
+  const ref = useRef(null);
+
+  /* Recarrega as listas sempre que o dropdown abre */
+  useEffect(() => {
+    if (open) setLists(getCustomLists());
+  }, [open]);
+
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const mediaIdStr = String(mediaId);
+  const inLists = lists.filter(l => l.mediaIds.includes(mediaIdStr));
+  const inAny   = inLists.length > 0;
+
+  const toggle = (listId, isIn) => {
+    if (isIn) removeFromCustomList(listId, mediaIdStr);
+    else      addToCustomList(listId, mediaIdStr);
+    setLists(getCustomLists());
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Adicionar a lista personalizada"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          background: inAny ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.06)',
+          border: `1px solid ${inAny ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.1)'}`,
+          color: inAny ? 'var(--purple-light)' : 'var(--text-secondary)',
+          borderRadius: 10, padding: '11px 16px',
+          fontSize: 13.5, fontWeight: 600, transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)'; e.currentTarget.style.color = 'var(--purple-light)'; }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = inAny ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.1)';
+          e.currentTarget.style.color = inAny ? 'var(--purple-light)' : 'var(--text-secondary)';
+        }}
+      >
+        <ListPlus size={15} />
+        {inAny ? `Listas (${inLists.length})` : 'Listas'}
+        <ChevronDown size={13} style={{ opacity: 0.6 }} />
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+          background: '#1a1a28', border: '1px solid var(--border)',
+          borderRadius: 12, overflow: 'hidden', zIndex: 300,
+          boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+          minWidth: 200, maxHeight: 280, overflowY: 'auto',
+          animation: 'fadeIn 0.15s ease',
+        }}>
+          {lists.length === 0 ? (
+            <div style={{ padding: '16px 14px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5 }}>
+              <p>Nenhuma lista criada.</p>
+              <a href="/lists" style={{ color: 'var(--purple-light)', fontSize: 12, marginTop: 4, display: 'block' }}>
+                Criar listas →
+              </a>
+            </div>
+          ) : (
+            lists.map(list => {
+              const isIn = list.mediaIds.includes(mediaIdStr);
+              return (
+                <button
+                  key={list.id}
+                  onClick={() => toggle(list.id, isIn)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 9,
+                    width: '100%', padding: '10px 14px',
+                    color: isIn ? 'var(--purple-light)' : 'var(--text-secondary)',
+                    background: isIn ? 'rgba(124,58,237,0.1)' : 'transparent',
+                    fontSize: 13, fontWeight: isIn ? 600 : 400,
+                    textAlign: 'left', transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => { if (!isIn) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                  onMouseLeave={e => { if (!isIn) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  {isIn ? <Check size={13} color="var(--purple-light)" /> : <Plus size={13} />}
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {list.name}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: 'var(--text-muted)', flexShrink: 0 }}>
+                    {list.mediaIds.length}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Botão Modo Maratona ─── */
 function MarathonBtn({ mediaId, title, cover, progress }) {
   const { running, session, startMarathon, stopMarathon } = useMarathon();
@@ -1804,6 +1906,9 @@ export default function AnimeDetail() {
                 <Heart size={15} fill={favorited ? '#f87171' : 'none'} />
                 {favorited ? 'Favoritado' : 'Favoritar'}
               </button>
+
+              {/* Adicionar a lista personalizada */}
+              {listStatus && <AddToCustomListButton mediaId={String(id)} />}
 
               {/* Modo Maratona (só anime) */}
               {isAnime && listStatus && listStatus !== 'PLAN_TO_WATCH' && (

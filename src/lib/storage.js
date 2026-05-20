@@ -73,6 +73,51 @@ export function getMonthlyActivity(months = 6) {
 }
 
 /* ════════════════════════════════════════
+   LISTAS CUSTOMIZADAS
+════════════════════════════════════════ */
+const CL_KEY = 'nakama_custom_lists';
+
+export function getCustomLists() {
+  try { return JSON.parse(localStorage.getItem(CL_KEY) || '[]'); }
+  catch { return []; }
+}
+
+export function createCustomList(name) {
+  const lists = getCustomLists();
+  const newList = { id: Date.now().toString(), name: name.trim(), createdAt: Date.now(), mediaIds: [] };
+  localStorage.setItem(CL_KEY, JSON.stringify([...lists, newList]));
+  return newList;
+}
+
+export function deleteCustomList(id) {
+  localStorage.setItem(CL_KEY, JSON.stringify(getCustomLists().filter(l => l.id !== id)));
+}
+
+export function renameCustomList(id, name) {
+  localStorage.setItem(CL_KEY, JSON.stringify(
+    getCustomLists().map(l => l.id === id ? { ...l, name: name.trim() } : l)
+  ));
+}
+
+export function addToCustomList(listId, mediaId) {
+  localStorage.setItem(CL_KEY, JSON.stringify(
+    getCustomLists().map(l =>
+      l.id === listId && !l.mediaIds.includes(mediaId)
+        ? { ...l, mediaIds: [...l.mediaIds, mediaId] }
+        : l
+    )
+  ));
+}
+
+export function removeFromCustomList(listId, mediaId) {
+  localStorage.setItem(CL_KEY, JSON.stringify(
+    getCustomLists().map(l =>
+      l.id === listId ? { ...l, mediaIds: l.mediaIds.filter(id => id !== mediaId) } : l
+    )
+  ));
+}
+
+/* ════════════════════════════════════════
    STREAK TRACKING
 ════════════════════════════════════════ */
 const STREAK_KEY = 'nakama_streak';

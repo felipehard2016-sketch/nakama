@@ -27,6 +27,7 @@ const StudioPage      = lazy(() => import('./pages/StudioPage'));
 const Wrapped         = lazy(() => import('./pages/Wrapped'));
 const Achievements    = lazy(() => import('./pages/Achievements'));
 const Rankings        = lazy(() => import('./pages/Rankings'));
+const Lists           = lazy(() => import('./pages/Lists'));
 
 /* ── Fallback de carregamento ── */
 function PageLoader() {
@@ -93,6 +94,7 @@ export default function App() {
                 <Route path="wrapped"         element={<Wrapped />} />
                 <Route path="achievements"    element={<Achievements />} />
                 <Route path="rankings"        element={<Rankings />} />
+                <Route path="lists"           element={<Lists />} />
 
                 {/* Protegidas — exigem login */}
                 <Route path="my-list"   element={guard(<MyList />)} />

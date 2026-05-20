@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Search, List, Star, BarChart2, Calendar, User, Tv,
-  LogIn, LogOut, ChevronRight, Compass, Sparkles, Trophy, Sun, Moon, Medal,
+  LogIn, LogOut, ChevronRight, Compass, Sparkles, Trophy, Sun, Moon, Medal, ListPlus,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAllMedia } from '../../lib/storage';
@@ -17,6 +17,7 @@ const MAIN_LINKS = [
 
 const ACCOUNT_LINKS = [
   { to: '/my-list',       icon: List,     label: 'Minha Lista' },
+  { to: '/lists',         icon: ListPlus, label: 'Listas' },
   { to: '/favorites',     icon: Star,     label: 'Favoritos' },
   { to: '/stats',         icon: BarChart2, label: 'Estatísticas' },
   { to: '/achievements',  icon: Trophy,   label: 'Conquistas' },
