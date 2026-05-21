@@ -25,7 +25,31 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        /*
+         * ─── ATENÇÃO: JS e HTML removidos do precache ──────────────────────
+         *
+         * Problema anterior: o SW usava CacheFirst para index.html (via
+         * NavigationRoute + createHandlerBoundToURL). Após um novo deploy,
+         * o SW continuava servindo o index.html antigo, que referenciava
+         * chunks com hash antigo — ainda na cache do SW → código quebrado.
+         *
+         * Solução:
+         *   • Não precachear JS: chunks têm hash imutável (1 ano no browser
+         *     via vercel.json), o browser HTTP cache já cuida disso.
+         *   • Não precachear HTML: navegações vão direto à rede → sempre
+         *     recebem o index.html atualizado do Vercel.
+         *   • SW cuida apenas de fontes, ícones e CSS (raramente mudam).
+         * ──────────────────────────────────────────────────────────────── */
+        globPatterns: ['**/*.{css,ico,png,svg,woff2,woff,ttf}'],
+
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+
+        /* navigateFallback: null desativa o NavigationRoute automático do VitePWA.
+         * Sem isso, o SW usa CacheFirst para index.html → serve HTML antigo após deploys. */
+        navigateFallback: null,
+
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/graphql\.anilist\.co/,
