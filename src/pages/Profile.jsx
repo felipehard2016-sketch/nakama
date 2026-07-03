@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAllMedia } from '../lib/storage';
-import { uploadAvatar, uploadBanner, saveProfileMeta } from '../lib/profile';
 import { getUserPersonality, saveUserPersonality } from '../lib/personality';
 import {
-  LogOut, Trophy, Target, Tv, BookOpen,
+  Trophy, Target, Tv, BookOpen,
   Clock, Star, Heart, CheckCircle2, Zap,
-  Camera, ImagePlus, Sparkles, ChevronDown, Save,
+  Camera, Sparkles, ChevronDown, Save, Edit2,
 } from 'lucide-react';
 
 /* ════════════════════════════════════════
@@ -254,25 +252,28 @@ function GoalCard({ icon: Icon, label, current, goal, unit }) {
 /* ════════════════════════════════════════
    PÁGINA
 ════════════════════════════════════════ */
+const JOINED_KEY = 'nakama_joined_at';
+
 export default function Profile() {
-  const { displayName, user, signOut } = useAuth();
-  const navigate = useNavigate();
+  const { displayName, updateDisplayName } = useAuth();
 
-  /* URLs de imagem — lê dos metadados do usuário */
-  const [avatarUrl, setAvatarUrl] = useState(
-    user?.user_metadata?.avatar_url || null
-  );
-  const [bannerUrl, setBannerUrl] = useState(
-    user?.user_metadata?.banner_url || null
-  );
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [bannerHover, setBannerHover]         = useState(false);
+  /* Registra data de início na primeira visita */
+  useEffect(() => {
+    if (!localStorage.getItem(JOINED_KEY)) {
+      localStorage.setItem(JOINED_KEY, new Date().toISOString());
+    }
+  }, []);
 
-  const avatarInputRef = useRef(null);
-  const bannerInputRef = useRef(null);
+  /* ── Edição de nome ── */
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput,   setNameInput]   = useState(displayName);
 
-  /* ── Minha Personalidade ── */
+  const handleSaveName = () => {
+    updateDisplayName(nameInput);
+    setEditingName(false);
+  };
+
+  /* ── Personalidade ── */
   const [personality, setPersonality] = useState({
     mbti: '', enneagram: '', zodiac: '',
     fav_anime: '', fav_manga: '', bio: '',
@@ -281,69 +282,26 @@ export default function Profile() {
   const [personalitySaved,  setPersonalitySaved]  = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    getUserPersonality(user.id).then(data => {
+    getUserPersonality(null).then(data => {
       if (data) setPersonality({
-        mbti:       data.mbti       || '',
-        enneagram:  data.enneagram  || '',
-        zodiac:     data.zodiac     || '',
-        fav_anime:  data.fav_anime  || '',
-        fav_manga:  data.fav_manga  || '',
-        bio:        data.bio        || '',
+        mbti:      data.mbti      || '',
+        enneagram: data.enneagram || '',
+        zodiac:    data.zodiac    || '',
+        fav_anime: data.fav_anime || '',
+        fav_manga: data.fav_manga || '',
+        bio:       data.bio       || '',
       });
     });
-  }, [user]);
+  }, []);
 
   const handleSavePersonality = async () => {
-    if (!user) return;
     setSavingPersonality(true);
     try {
-      await saveUserPersonality(user.id, personality);
+      await saveUserPersonality(null, personality);
       setPersonalitySaved(true);
       setTimeout(() => setPersonalitySaved(false), 2500);
-    } catch (e) {
-      console.error('Erro ao salvar personalidade:', e);
-      alert('Erro ao salvar. Verifique se a tabela user_profiles existe no Supabase.');
     } finally {
       setSavingPersonality(false);
-    }
-  };
-
-  /* ── Upload de avatar ── */
-  const handleAvatarUpload = async e => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    if (file.size > 8 * 1024 * 1024) { alert('Imagem muito grande. Máximo: 8MB'); return; }
-    setUploadingAvatar(true);
-    try {
-      const url = await uploadAvatar(user.id, file);
-      setAvatarUrl(url);
-      await saveProfileMeta({ avatar_url: url });
-    } catch (err) {
-      console.error('Avatar upload falhou:', err);
-      alert('Erro ao enviar imagem. Verifique se o bucket "profiles" existe no Supabase.');
-    } finally {
-      setUploadingAvatar(false);
-      e.target.value = '';
-    }
-  };
-
-  /* ── Upload de banner ── */
-  const handleBannerUpload = async e => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    if (file.size > 15 * 1024 * 1024) { alert('Imagem muito grande. Máximo: 15MB'); return; }
-    setUploadingBanner(true);
-    try {
-      const url = await uploadBanner(user.id, file);
-      setBannerUrl(url);
-      await saveProfileMeta({ banner_url: url });
-    } catch (err) {
-      console.error('Banner upload falhou:', err);
-      alert('Erro ao enviar imagem. Verifique se o bucket "profiles" existe no Supabase.');
-    } finally {
-      setUploadingBanner(false);
-      e.target.value = '';
     }
   };
 
@@ -353,22 +311,19 @@ export default function Profile() {
   const stats = useMemo(() => {
     const isManga = m => ['MANGA', 'ONE_SHOT', 'NOVEL'].includes(m.format);
 
-    const animeCount    = all.filter(m => !isManga(m) && m.listStatus).length;
-    const mangaCount    = all.filter(m =>  isManga(m) && m.listStatus).length;
+    const animeCount     = all.filter(m => !isManga(m) && m.listStatus).length;
+    const mangaCount     = all.filter(m =>  isManga(m) && m.listStatus).length;
     const completedCount = all.filter(m => m.listStatus === 'COMPLETED').length;
-    const favCount      = all.filter(m => m.favorited).length;
-    const totalCount    = all.filter(m => m.listStatus || m.favorited).length;
+    const favCount       = all.filter(m => m.favorited).length;
+    const totalCount     = all.filter(m => m.listStatus || m.favorited).length;
+    const totalEps       = all.reduce((a, m) => a + (m.progress || 0), 0);
 
-    const totalEps = all.reduce((a, m) => a + (m.progress || 0), 0);
-
-    /* Horas: usa a duração real de cada anime armazenada (minutos/ep) */
     const totalMinutes = all.reduce((acc, m) => {
       if (isManga(m) || !m.progress) return acc;
       return acc + (m.progress * (m.duration || 24));
     }, 0);
     const totalHours = Math.round(totalMinutes / 60);
 
-    /* Capítulos de mangá */
     const mangaChapters = all
       .filter(m => isManga(m))
       .reduce((a, m) => a + (m.progress || 0), 0);
@@ -380,24 +335,20 @@ export default function Profile() {
   }, [all]);
 
   const lv = useMemo(() => calcLevel(stats.totalEps), [stats.totalEps]);
-
   const unlockedCount = ACHIEVEMENTS_DEF.filter(d => d.check(stats)).length;
 
-  /* Metas anuais */
-  const thisYear    = new Date().getFullYear();
-  const addedYear   = all.filter(m => m.addedAt && new Date(m.addedAt).getFullYear() === thisYear);
-  const animeGoal   = addedYear.filter(m => !['MANGA','ONE_SHOT','NOVEL'].includes(m.format)).length;
-  const mangaGoal   = addedYear.filter(m =>  ['MANGA','ONE_SHOT','NOVEL'].includes(m.format)).length;
+  const thisYear  = new Date().getFullYear();
+  const addedYear = all.filter(m => m.addedAt && new Date(m.addedAt).getFullYear() === thisYear);
+  const animeGoal = addedYear.filter(m => !['MANGA','ONE_SHOT','NOVEL'].includes(m.format)).length;
+  const mangaGoal = addedYear.filter(m =>  ['MANGA','ONE_SHOT','NOVEL'].includes(m.format)).length;
 
-  /* Avatar: iniciais limpas (sem caracteres inválidos) */
   const cleanName = (displayName || '').replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim() || 'U';
   const initials  = cleanName.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
-  const memberSince = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const joinedRaw = localStorage.getItem(JOINED_KEY);
+  const memberSince = joinedRaw
+    ? new Date(joinedRaw).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     : 'Recentemente';
-
-  const handleLogout = async () => { await signOut(); navigate('/login'); };
 
   /* helper para selects */
   const SelectField = ({ label, value, onChange, children }) => (
@@ -448,126 +399,80 @@ export default function Profile() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', animation: 'fadeIn 0.4s ease' }}>
 
-      {/* inputs de arquivo ocultos */}
-      <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
-      <input ref={bannerInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBannerUpload} />
-
-      {/* ══════════════════════════════════════
-          BANNER — ponta a ponta, 200px
-      ══════════════════════════════════════ */}
+      {/* Banner */}
       <div style={{ position: 'relative', height: 200 }}>
-
-        {/* Fundo clicável */}
-        <div
-          style={{ position: 'absolute', inset: 0, overflow: 'hidden', cursor: 'pointer' }}
-          onClick={() => !uploadingBanner && bannerInputRef.current?.click()}
-          onMouseEnter={() => setBannerHover(true)}
-          onMouseLeave={() => setBannerHover(false)}
-        >
-          {bannerUrl ? (
-            <img src={bannerUrl} alt="Banner"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          ) : (
-            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#3b0764 0%,#1e1b4b 45%,#0c1445 100%)', position: 'relative' }}>
-              <div style={{ position: 'absolute', top: -40, right: 120, width: 280, height: 280, borderRadius: '50%', background: 'rgba(124,58,237,0.2)', filter: 'blur(60px)' }} />
-              <div style={{ position: 'absolute', bottom: -30, left: 200, width: 200, height: 200, borderRadius: '50%', background: 'rgba(79,70,229,0.18)', filter: 'blur(50px)' }} />
-              <div style={{ position: 'absolute', top: 30, left: '40%', width: 160, height: 160, borderRadius: '50%', background: 'rgba(139,92,246,0.1)', filter: 'blur(40px)' }} />
-            </div>
-          )}
-          {/* overlay edição */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: bannerHover ? 'rgba(0,0,0,0.4)' : 'transparent',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'background 0.2s',
-          }}>
-            {(bannerHover || uploadingBanner) && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: 10, padding: '10px 18px',
-                color: '#fff', fontSize: 13.5, fontWeight: 600,
-              }}>
-                {uploadingBanner
-                  ? <><div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Enviando...</>
-                  : <><ImagePlus size={16} />Editar banner</>}
-              </div>
-            )}
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#3b0764 0%,#1e1b4b 45%,#0c1445 100%)', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: -40, right: 120, width: 280, height: 280, borderRadius: '50%', background: 'rgba(124,58,237,0.2)', filter: 'blur(60px)' }} />
+            <div style={{ position: 'absolute', bottom: -30, left: 200, width: 200, height: 200, borderRadius: '50%', background: 'rgba(79,70,229,0.18)', filter: 'blur(50px)' }} />
+            <div style={{ position: 'absolute', top: 30, left: '40%', width: 160, height: 160, borderRadius: '50%', background: 'rgba(139,92,246,0.1)', filter: 'blur(40px)' }} />
           </div>
         </div>
 
-        {/* Avatar — metade dentro / metade fora do banner */}
+        {/* Avatar */}
         <div style={{ position: 'absolute', bottom: -52, left: 40, zIndex: 10 }}>
-          <div style={{ position: 'relative', width: 104, height: 104 }}>
-            <div style={{
-              width: 104, height: 104, borderRadius: '50%',
-              border: '4px solid var(--bg)',
-              boxShadow: '0 0 0 2px var(--purple), 0 0 28px rgba(124,58,237,0.55)',
-              overflow: 'hidden',
-              background: 'linear-gradient(135deg,var(--purple),#4f46e5)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 36, fontWeight: 900, color: '#fff',
-            }}>
-              {avatarUrl
-                ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : uploadingAvatar
-                  ? <div style={{ width: 28, height: 28, border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid #fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                  : initials}
-            </div>
-            <button
-              onClick={() => !uploadingAvatar && avatarInputRef.current?.click()}
-              title="Editar foto"
-              style={{
-                position: 'absolute', bottom: 2, right: 2,
-                width: 30, height: 30, borderRadius: '50%',
-                background: 'var(--purple)', border: '2px solid var(--bg)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', transition: 'background 0.15s',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--purple-dark)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'var(--purple)'}
-            >
-              <Camera size={13} color="#fff" />
-            </button>
+          <div style={{
+            width: 104, height: 104, borderRadius: '50%',
+            border: '4px solid var(--bg)',
+            boxShadow: '0 0 0 2px var(--purple), 0 0 28px rgba(124,58,237,0.55)',
+            background: 'linear-gradient(135deg,var(--purple),#4f46e5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 36, fontWeight: 900, color: '#fff',
+          }}>
+            {initials}
           </div>
         </div>
       </div>
 
-      {/* ══════════════════════════════════════
-          ZONA DE CABEÇALHO (ao lado do avatar)
-          paddingLeft = 40 avatar_left + 104 avatar_w + 20 gap
-      ══════════════════════════════════════ */}
+      {/* Cabeçalho */}
       <div style={{ padding: '0 32px', minHeight: 68 }}>
         <div style={{
           display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
-          paddingLeft: 164,   /* clear avatar */
+          paddingLeft: 164,
           paddingTop: 10,
           paddingBottom: 20,
         }}>
           <div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.2 }}>
-              {cleanName || 'Usuário'}
-            </h1>
+            {editingName ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  value={nameInput}
+                  onChange={e => setNameInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false); }}
+                  autoFocus
+                  style={{
+                    fontSize: 22, fontWeight: 800, background: 'var(--bg-card)',
+                    border: '1px solid rgba(124,58,237,0.5)', borderRadius: 8,
+                    padding: '4px 10px', color: 'var(--text)', outline: 'none',
+                  }}
+                />
+                <button onClick={handleSaveName} style={{ background: 'var(--purple)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  Salvar
+                </button>
+                <button onClick={() => setEditingName(false)} style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.2 }}>
+                  {cleanName || 'Usuário'}
+                </h1>
+                <button
+                  onClick={() => { setNameInput(displayName); setEditingName(true); }}
+                  title="Editar nome"
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6, transition: 'color 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--purple-light)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  <Edit2 size={15} />
+                </button>
+              </div>
+            )}
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-              Membro desde {memberSince}
+              Usando desde {memberSince}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)',
-              borderRadius: 10, padding: '9px 18px',
-              color: '#f87171', fontSize: 13, fontWeight: 600,
-              cursor: 'pointer', transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.18)'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.5)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.1)'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.25)'; }}
-          >
-            <LogOut size={14} /> Sair
-          </button>
         </div>
       </div>
 

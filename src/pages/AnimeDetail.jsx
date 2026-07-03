@@ -1616,36 +1616,34 @@ export default function AnimeDetail() {
 
   /* ── Toggle de episódio individual ── */
   const handleToggleEp = useCallback(async (epNumber) => {
-    if (!user?.id) { showToast('Faça login para marcar episódios', 'info'); return; }
     const wasWatched = watchedEps.has(epNumber);
     setWatchedEps(prev => {
       const next = new Set(prev);
       wasWatched ? next.delete(epNumber) : next.add(epNumber);
       return next;
     });
-    await markEpisode(user.id, parseInt(id), epNumber, !wasWatched);
+    await markEpisode(null, parseInt(id), epNumber, !wasWatched);
     showToast(
       wasWatched ? `Episódio ${epNumber} desmarcado` : `Ep. ${epNumber} marcado como assistido! ✓`,
       wasWatched ? 'info' : 'success',
     );
-  }, [user?.id, watchedEps, id, showToast]);
+  }, [watchedEps, id, showToast]);
 
   /* ── Marcar/desmarcar toda uma temporada ── */
   const handleMarkSeason = useCallback(async (seasonEps, markAll) => {
-    if (!user?.id) { showToast('Faça login para marcar episódios', 'info'); return; }
     setWatchedEps(prev => {
       const next = new Set(prev);
       seasonEps.forEach(ep => markAll ? next.add(ep.number) : next.delete(ep.number));
       return next;
     });
     for (const ep of seasonEps) {
-      await markEpisode(user.id, parseInt(id), ep.number, markAll);
+      await markEpisode(null, parseInt(id), ep.number, markAll);
     }
     showToast(
       markAll ? 'Temporada marcada como assistida! 🎉' : 'Temporada desmarcada',
       markAll ? 'success' : 'info',
     );
-  }, [user?.id, id, showToast]);
+  }, [id, showToast]);
 
   if (loading) return <Spinner />;
   if (!media)  return <div style={{ padding: 40, color: 'var(--text-muted)' }}>Não encontrado.</div>;

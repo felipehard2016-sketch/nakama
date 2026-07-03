@@ -90,32 +90,15 @@ export async function lookupCharacterCatalog(characterName, animeNames = []) {
 }
 
 /* ──────────────────────────────────────────────
-   PERFIL DE PERSONALIDADE DO USUÁRIO
+   PERFIL DE PERSONALIDADE DO USUÁRIO (localStorage)
 ────────────────────────────────────────────── */
+const PERSONALITY_KEY = 'nakama_personality';
 
-/**
- * Carrega o perfil de personalidade do usuário do Supabase.
- */
-export async function getUserPersonality(userId) {
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) { console.error('getUserPersonality:', error); return null; }
-  return data;
+export async function getUserPersonality(_userId) {
+  try { return JSON.parse(localStorage.getItem(PERSONALITY_KEY)) || null; }
+  catch { return null; }
 }
 
-/**
- * Salva (upsert) o perfil de personalidade do usuário.
- */
-export async function saveUserPersonality(userId, profile) {
-  const { error } = await supabase
-    .from('user_profiles')
-    .upsert(
-      { user_id: userId, ...profile, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id' }
-    );
-  if (error) throw error;
+export async function saveUserPersonality(_userId, profile) {
+  localStorage.setItem(PERSONALITY_KEY, JSON.stringify(profile));
 }

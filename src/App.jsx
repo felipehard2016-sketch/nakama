@@ -4,21 +4,10 @@ import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { MarathonProvider } from './context/MarathonContext';
 import Layout from './components/layout/Layout';
-import ProtectedRoute from './components/auth/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import Home   from './pages/Home';
+import Search from './pages/Search';
 
-/* ── Páginas carregadas de forma síncrona (pequenas / críticas) ── */
-import Home    from './pages/Home';
-import Search  from './pages/Search';
-import Login   from './pages/Login';
-import Register       from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword  from './pages/ResetPassword';
-
-/* ──────────────────────────────────────────────────────────────
-   lazyWithRetry — tenta importar o chunk UMA vez extra se falhar.
-   Evita erros transitórios de rede ao navegar pela primeira vez.
-────────────────────────────────────────────────────────────── */
 function lazyWithRetry(factory) {
   return lazy(() =>
     factory().catch(err => {
@@ -28,7 +17,6 @@ function lazyWithRetry(factory) {
   );
 }
 
-/* ── Páginas carregadas sob demanda (lazy + retry automático) ── */
 const AnimeDetail     = lazyWithRetry(() => import('./pages/AnimeDetail'));
 const CharacterDetail = lazyWithRetry(() => import('./pages/CharacterDetail'));
 const MyList          = lazyWithRetry(() => import('./pages/MyList'));
@@ -43,7 +31,6 @@ const Achievements    = lazyWithRetry(() => import('./pages/Achievements'));
 const Rankings        = lazyWithRetry(() => import('./pages/Rankings'));
 const Lists           = lazyWithRetry(() => import('./pages/Lists'));
 
-/* ── Fallback de carregamento ── */
 function PageLoader() {
   return (
     <div style={{
@@ -62,9 +49,6 @@ function PageLoader() {
   );
 }
 
-const guard = (el) => <ProtectedRoute>{el}</ProtectedRoute>;
-
-/* Atalho "/" → abre busca */
 function KeyboardShortcuts() {
   const navigate = useNavigate();
   useEffect(() => {
@@ -80,10 +64,6 @@ function KeyboardShortcuts() {
   return null;
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Wrapper de rota com ErrorBoundary individual.
-   Isola falhas: uma rota quebrando não derruba as outras.
-────────────────────────────────────────────────────────────── */
 function RouteErrorBoundary({ children }) {
   return (
     <ErrorBoundary key={children?.type?.displayName || Math.random()}>
@@ -94,7 +74,6 @@ function RouteErrorBoundary({ children }) {
 
 export default function App() {
   return (
-    /* ErrorBoundary mais externo — captura qualquer erro não tratado */
     <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>
@@ -103,15 +82,7 @@ export default function App() {
               <KeyboardShortcuts />
               <Suspense fallback={<PageLoader />}>
                 <Routes>
-                  {/* Rotas públicas (sem sidebar) */}
-                  <Route path="/login"           element={<Login />} />
-                  <Route path="/register"        element={<Register />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route path="/reset-password"  element={<ResetPassword />} />
-
-                  {/* Rotas com layout */}
                   <Route path="/" element={<Layout />}>
-                    {/* Públicas */}
                     <Route index                element={<Home />} />
                     <Route path="search"        element={<Search />} />
                     <Route path="anime/:id"     element={<RouteErrorBoundary><AnimeDetail /></RouteErrorBoundary>} />
@@ -123,12 +94,10 @@ export default function App() {
                     <Route path="achievements"  element={<RouteErrorBoundary><Achievements /></RouteErrorBoundary>} />
                     <Route path="rankings"      element={<RouteErrorBoundary><Rankings /></RouteErrorBoundary>} />
                     <Route path="lists"         element={<RouteErrorBoundary><Lists /></RouteErrorBoundary>} />
-
-                    {/* Protegidas — exigem login */}
-                    <Route path="my-list"   element={guard(<RouteErrorBoundary><MyList /></RouteErrorBoundary>)} />
-                    <Route path="favorites" element={guard(<RouteErrorBoundary><Favorites /></RouteErrorBoundary>)} />
-                    <Route path="stats"     element={guard(<RouteErrorBoundary><Stats /></RouteErrorBoundary>)} />
-                    <Route path="profile"   element={guard(<RouteErrorBoundary><Profile /></RouteErrorBoundary>)} />
+                    <Route path="my-list"       element={<RouteErrorBoundary><MyList /></RouteErrorBoundary>} />
+                    <Route path="favorites"     element={<RouteErrorBoundary><Favorites /></RouteErrorBoundary>} />
+                    <Route path="stats"         element={<RouteErrorBoundary><Stats /></RouteErrorBoundary>} />
+                    <Route path="profile"       element={<RouteErrorBoundary><Profile /></RouteErrorBoundary>} />
                   </Route>
                 </Routes>
               </Suspense>

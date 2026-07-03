@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Search, List, Star, BarChart2, Calendar, User, Tv,
-  LogIn, LogOut, ChevronRight, Compass, Sparkles, Trophy, Sun, Moon, Medal, ListPlus,
+  ChevronRight, Compass, Sparkles, Trophy, Sun, Moon, Medal, ListPlus,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAllMedia } from '../../lib/storage';
@@ -16,16 +16,15 @@ const MAIN_LINKS = [
 ];
 
 const ACCOUNT_LINKS = [
-  { to: '/my-list',       icon: List,     label: 'Minha Lista' },
-  { to: '/lists',         icon: ListPlus, label: 'Listas' },
-  { to: '/favorites',     icon: Star,     label: 'Favoritos' },
+  { to: '/my-list',       icon: List,      label: 'Minha Lista' },
+  { to: '/lists',         icon: ListPlus,  label: 'Listas' },
+  { to: '/favorites',     icon: Star,      label: 'Favoritos' },
   { to: '/stats',         icon: BarChart2, label: 'Estatísticas' },
-  { to: '/achievements',  icon: Trophy,   label: 'Conquistas' },
-  { to: '/wrapped',       icon: Sparkles, label: 'Wrapped' },
-  { to: '/profile',       icon: User,     label: 'Perfil' },
+  { to: '/achievements',  icon: Trophy,    label: 'Conquistas' },
+  { to: '/wrapped',       icon: Sparkles,  label: 'Wrapped' },
+  { to: '/profile',       icon: User,      label: 'Perfil' },
 ];
 
-/* Calcula nível pelo total de episódios/capítulos assistidos */
 function getLevel(allMedia) {
   const eps = allMedia.reduce((acc, m) => acc + (m.progress || 0), 0);
   if (eps >= 6000) return { level: 7, label: 'Otaku' };
@@ -90,27 +89,14 @@ function SectionLabel({ children }) {
 }
 
 export default function Sidebar({ mobileOpen = false }) {
-  const { user, displayName, signOut } = useAuth();
+  const { displayName } = useAuth();
   const navigate = useNavigate();
   const allMedia = getAllMedia();
   const { label: levelLabel, level } = getLevel(allMedia);
   const { theme, toggle: toggleTheme } = useTheme();
 
-  /* Iniciais do avatar */
-  const initials = displayName
-    ? displayName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
-    : 'N';
-
-  const handleFooterClick = () => {
-    if (user) navigate('/profile');
-    else navigate('/login');
-  };
-
-  const handleSignOut = async e => {
-    e.stopPropagation();
-    await signOut();
-    navigate('/login');
-  };
+  const initials = (displayName || 'U')
+    .split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
     <aside
@@ -187,99 +173,50 @@ export default function Sidebar({ mobileOpen = false }) {
         </button>
       </div>
 
-      {/* Rodapé — Avatar ou Login */}
-      {user ? (
-        <div
-          onClick={handleFooterClick}
-          style={{
-            margin: '0 10px 12px',
-            background: 'rgba(124,58,237,0.08)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            padding: '12px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            cursor: 'pointer',
-            transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(124,58,237,0.15)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(124,58,237,0.08)'}
-        >
-          {/* Avatar */}
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--purple), var(--blue))',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 800, fontSize: 14, color: '#fff',
-            flexShrink: 0,
-            boxShadow: '0 0 12px rgba(124,58,237,0.4)',
-          }}>
-            {initials}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {displayName}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-              <div style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--purple-light), var(--blue-light))',
-              }} />
-              <span style={{ fontSize: 11, color: 'var(--purple-light)', fontWeight: 500 }}>
-                Nível {level} · {levelLabel}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={handleSignOut}
-            title="Sair"
-            style={{
-              display: 'flex', alignItems: 'center',
-              color: 'var(--text-muted)', padding: 4, borderRadius: 6,
-              transition: 'color 0.15s',
-              flexShrink: 0,
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-          >
-            <LogOut size={14} />
-          </button>
+      {/* Rodapé — Perfil local */}
+      <div
+        onClick={() => navigate('/profile')}
+        style={{
+          margin: '0 10px 12px',
+          background: 'rgba(124,58,237,0.08)',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          cursor: 'pointer',
+          transition: 'background 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(124,58,237,0.15)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(124,58,237,0.08)'}
+      >
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%',
+          background: 'linear-gradient(135deg, var(--purple), var(--blue))',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontWeight: 800, fontSize: 14, color: '#fff',
+          flexShrink: 0,
+          boxShadow: '0 0 12px rgba(124,58,237,0.4)',
+        }}>
+          {initials}
         </div>
-      ) : (
-        <div
-          onClick={() => navigate('/login')}
-          style={{
-            margin: '0 10px 12px',
-            background: 'rgba(124,58,237,0.08)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            padding: '12px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            cursor: 'pointer',
-            transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(124,58,237,0.15)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(124,58,237,0.08)'}
-        >
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: 'rgba(124,58,237,0.15)',
-            border: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <User size={16} color="var(--purple-light)" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {displayName}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Entrar</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Faça login para salvar</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: 'linear-gradient(135deg, var(--purple-light), var(--blue-light))',
+            }} />
+            <span style={{ fontSize: 11, color: 'var(--purple-light)', fontWeight: 500 }}>
+              Nível {level} · {levelLabel}
+            </span>
           </div>
-          <LogIn size={14} color="var(--text-muted)" />
         </div>
-      )}
+        <ChevronRight size={14} color="var(--text-muted)" />
+      </div>
     </aside>
   );
 }
