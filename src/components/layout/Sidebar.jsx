@@ -1,28 +1,26 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, Search, List, Star, BarChart2, Calendar, User, Tv,
-  ChevronRight, Compass, Sparkles, Trophy, Sun, Moon, Medal, ListPlus,
+  ChevronRight, Compass, Sparkles, Trophy, Sun, Moon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAllMedia } from '../../lib/storage';
 import { useTheme } from '../../hooks/useTheme';
 
 const MAIN_LINKS = [
-  { to: '/',         icon: Home,    label: 'Home' },
-  { to: '/search',   icon: Search,  label: 'Buscar' },
-  { to: '/discover', icon: Compass, label: 'Descobrir' },
-  { to: '/rankings', icon: Medal,   label: 'Rankings' },
+  { to: '/',         icon: Home,     label: 'Home' },
+  { to: '/search',   icon: Search,   label: 'Buscar' },
+  { to: '/discover', icon: Compass,  label: 'Descobrir' },
   { to: '/calendar', icon: Calendar, label: 'Calendário' },
 ];
 
 const ACCOUNT_LINKS = [
-  { to: '/my-list',       icon: List,      label: 'Minha Lista' },
-  { to: '/lists',         icon: ListPlus,  label: 'Listas' },
-  { to: '/favorites',     icon: Star,      label: 'Favoritos' },
-  { to: '/stats',         icon: BarChart2, label: 'Estatísticas' },
-  { to: '/achievements',  icon: Trophy,    label: 'Conquistas' },
-  { to: '/wrapped',       icon: Sparkles,  label: 'Wrapped' },
-  { to: '/profile',       icon: User,      label: 'Perfil' },
+  { to: '/my-list',      icon: List,      label: 'Minha Lista' },
+  { to: '/favorites',    icon: Star,      label: 'Favoritos' },
+  { to: '/stats',        icon: BarChart2, label: 'Estatísticas' },
+  { to: '/achievements', icon: Trophy,    label: 'Conquistas' },
+  { to: '/wrapped',      icon: Sparkles,  label: 'Wrapped' },
+  { to: '/profile',      icon: User,      label: 'Perfil' },
 ];
 
 function getLevel(allMedia) {

@@ -37,7 +37,7 @@ function Section({ title, icon: Icon, accent, children, action, actionLabel }) {
 
   return (
     <section style={{ marginBottom: 56 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, padding: '0 40px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <Icon size={17} color={accent || 'var(--purple-light)'} />
           <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>{title}</h2>
@@ -75,7 +75,7 @@ function Section({ title, icon: Icon, accent, children, action, actionLabel }) {
       </div>
       <div ref={setRef} style={{
         display: 'flex', gap: 14, overflowX: 'auto', scrollbarWidth: 'none',
-        paddingInline: '40px', paddingBottom: 6,
+        paddingInline: '24px', paddingBottom: 6,
       }}>
         {children}
       </div>
@@ -92,7 +92,7 @@ function AnimeOfDayCard({ media }) {
 
   return (
     <div style={{
-      margin: '0 40px 56px',
+      margin: '0 24px 56px',
       position: 'relative', overflow: 'hidden', borderRadius: 20,
       background: 'var(--bg-card)', border: '1px solid var(--border)',
       cursor: 'pointer', minHeight: 220,
@@ -179,7 +179,7 @@ function AnimeOfDayCard({ media }) {
 function SurpriseButton({ onClick, loading }) {
   return (
     <div style={{
-      margin: '0 40px 56px',
+      margin: '0 24px 56px',
       background: 'linear-gradient(135deg, rgba(124,58,237,0.1), rgba(79,70,229,0.06))',
       border: '1px dashed rgba(124,58,237,0.4)',
       borderRadius: 16,
@@ -299,7 +299,7 @@ export default function Discover() {
 
       {/* ── Hero header ── */}
       <div style={{
-        padding: '40px 40px 32px',
+        padding: '40px 24px 32px',
         background: 'linear-gradient(180deg, rgba(124,58,237,0.07) 0%, transparent 100%)',
         borderBottom: '1px solid var(--border)',
         marginBottom: 40,
@@ -316,14 +316,14 @@ export default function Discover() {
       {/* ── Anime do Dia ── */}
       {(loading || animeOfDay) && (
         <>
-          <div style={{ padding: '0 40px', marginBottom: 12 }}>
+          <div style={{ padding: '0 24px', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Sparkles size={16} color="#fbbf24" />
               <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Anime do Dia</h2>
             </div>
           </div>
           {loading
-            ? <div className="skeleton" style={{ height: 220, borderRadius: 20, margin: '0 40px 56px' }} />
+            ? <div className="skeleton" style={{ height: 220, borderRadius: 20, margin: '0 24px 56px' }} />
             : <AnimeOfDayCard media={animeOfDay} />
           }
         </>

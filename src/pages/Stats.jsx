@@ -119,6 +119,7 @@ function EmptyStats() {
 
 export default function Stats() {
   useTitle('Estatísticas');
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
@@ -184,7 +185,7 @@ export default function Stats() {
   }, []);
 
   if (!stats) return (
-    <div style={{ padding: '36px 40px 0', minHeight: '100vh' }}>
+    <div style={{ padding: '36px 24px 0', minHeight: '100vh' }}>
       <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>Estatísticas</h1>
       <EmptyStats />
     </div>
@@ -197,7 +198,7 @@ export default function Stats() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Header */}
       <div style={{
-        padding: '36px 40px 32px',
+        padding: '36px 24px 32px',
         background: 'linear-gradient(180deg, rgba(124,58,237,0.06) 0%, transparent 100%)',
         borderBottom: '1px solid var(--border)',
       }}>
@@ -223,10 +224,10 @@ export default function Stats() {
         </div>
       </div>
 
-      <div style={{ padding: '32px 40px 60px' }}>
+      <div style={{ padding: '32px 24px 60px' }}>
 
         {/* Cards de resumo */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14, marginBottom: 44 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 44 }}>
           <StatCard icon={Tv}        label="Episódios Assistidos"  value={totalEps.toLocaleString()}  sub={`${hours}h assistidas · ${days} dias`} color="#a78bfa" />
           <StatCard icon={BookOpen}  label="Capítulos Lidos"       value={totalChaps.toLocaleString()} color="#60a5fa" />
           <StatCard icon={Clock}     label="Horas Assistidas"      value={`${hours}h`}                 sub={`${days} dias de anime`}               color="#4ade80" />

@@ -31,12 +31,12 @@ function SkeletonCarousel({ cardW = 150, cardH = 225, count = 7 }) {
   return (
     <section style={{ marginBottom: 48 }}>
       {/* header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18, padding: '0 40px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18, padding: '0 24px' }}>
         <SkeletonBox w={18} h={18} r={4} />
         <SkeletonBox w={160} h={20} r={6} />
       </div>
       {/* cards */}
-      <div style={{ display: 'flex', gap: 14, paddingInline: '40px', overflowX: 'hidden' }}>
+      <div style={{ display: 'flex', gap: 14, paddingInline: '24px', overflowX: 'hidden' }}>
         {Array.from({ length: count }).map((_, i) => (
           <SkeletonBox key={i} w={cardW} h={cardH} r={12} />
         ))}
@@ -91,7 +91,7 @@ function HomeSkeleton() {
   return (
     <div style={{ animation: 'fadeIn 0.3s ease' }}>
       {/* Hero skeleton */}
-      <div style={{ height: 480, background: 'var(--bg-card)', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: 280, background: 'var(--bg-card)', position: 'relative', overflow: 'hidden' }}>
         <div className="skeleton" style={{ position: 'absolute', inset: 0, borderRadius: 0 }} />
         <div style={{
           position: 'absolute', inset: 0,
@@ -118,17 +118,6 @@ function HomeSkeleton() {
         <SkeletonCarousel cardW={150} cardH={225} count={8} />
       </div>
 
-      {/* Rankings */}
-      <section style={{ padding: '0 40px 56px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18 }}>
-          <SkeletonBox w={18} h={18} r={4} />
-          <SkeletonBox w={120} h={20} r={6} />
-        </div>
-        <div style={{ display: 'flex', gap: 20 }}>
-          <SkeletonRankList />
-          <SkeletonRankList />
-        </div>
-      </section>
     </div>
   );
 }
@@ -149,7 +138,7 @@ function Hero({ media }) {
   if (!current) return null;
 
   return (
-    <div style={{ position: 'relative', height: 480, overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: 280, overflow: 'hidden' }}>
       {/* Background — eager load para o hero (above the fold) */}
       <div
         key={current.id}
@@ -203,10 +192,11 @@ function Hero({ media }) {
 
         {/* Title */}
         <h1 style={{
-          fontSize: 'clamp(28px, 3.5vw, 46px)', fontWeight: 900,
+          fontSize: 'clamp(22px, 2.8vw, 36px)', fontWeight: 900,
           lineHeight: 1.1, letterSpacing: '-0.02em',
-          maxWidth: 560, marginBottom: 12,
+          maxWidth: 500, marginBottom: 10,
           textShadow: '0 2px 20px rgba(0,0,0,0.5)',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
           {title}
         </h1>
@@ -279,7 +269,7 @@ function Carousel({ title, icon: Icon, items, cardSize = 'md' }) {
 
   return (
     <section style={{ marginBottom: 48 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, padding: '0 40px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <Icon size={18} color="var(--purple-light)" strokeWidth={2} />
           <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>{title}</h2>
@@ -306,7 +296,7 @@ function Carousel({ title, icon: Icon, items, cardSize = 'md' }) {
 
       <div
         ref={ref}
-        style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingInline: '40px', paddingBottom: 8, scrollbarWidth: 'none' }}
+        style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingInline: '24px', paddingBottom: 8, scrollbarWidth: 'none' }}
       >
         {items.map(media => (
           <AnimeCard key={media.id} media={media} size={cardSize} />
@@ -484,58 +474,6 @@ export default function Home() {
         {trending.length > 0 && <Carousel title="Em Alta" icon={Flame} items={trending} cardSize="lg" />}
         {seasonal.length > 0 && <Carousel title="Temporada Atual" icon={Tv} items={seasonal} cardSize="md" />}
 
-        {/* Banner Descobrir */}
-        <div style={{ margin: '0 40px 48px' }}>
-          <div
-            onClick={() => navigate('/discover')}
-            style={{
-              background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(79,70,229,0.06))',
-              border: '1px solid rgba(124,58,237,0.25)',
-              borderRadius: 16, padding: '22px 28px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20,
-              cursor: 'pointer', transition: 'border-color 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(124,58,237,0.5)'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(124,58,237,0.25)'}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: 12,
-                background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.35)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Compass size={20} color="var(--purple-light)" />
-              </div>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 3 }}>Descobrir</div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                  Anime do dia, gemas escondidas, clássicos e mais
-                </div>
-              </div>
-            </div>
-            <div style={{
-              fontSize: 12.5, fontWeight: 600, color: 'var(--purple-light)',
-              background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)',
-              borderRadius: 8, padding: '6px 14px', whiteSpace: 'nowrap',
-            }}>
-              Explorar →
-            </div>
-          </div>
-        </div>
-
-        {/* Rankings */}
-        {(topAnime.length > 0 || topManga.length > 0) && (
-          <section style={{ padding: '0 40px 56px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18 }}>
-              <TrendingUp size={18} color="var(--purple-light)" strokeWidth={2} />
-              <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>Rankings</h2>
-            </div>
-            <div style={{ display: 'flex', gap: 20 }}>
-              <RankingList title="Top Anime" icon={Star} items={topAnime} type="anime" />
-              <RankingList title="Top Mangá" icon={BookOpen} items={topManga} type="manga" />
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );

@@ -327,7 +327,7 @@ export default function Favorites() {
 
       {/* ── Header ── */}
       <div style={{
-        padding: '36px 40px 0',
+        padding: '36px 24px 0',
         background: 'linear-gradient(180deg, rgba(239,68,68,0.06) 0%, transparent 100%)',
         borderBottom: '1px solid var(--border)',
       }}>
@@ -436,7 +436,7 @@ export default function Favorites() {
       </div>
 
       {/* ── Conteúdo ── */}
-      <div style={{ padding: '28px 40px 64px' }}>
+      <div style={{ padding: '28px 24px 64px' }}>
         {isPersonagens ? (
           <EmptyState tab="personagens" />
         ) : displayed.length === 0 ? (
@@ -459,7 +459,7 @@ export default function Favorites() {
             {/* Grid 4 colunas */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
+              gridTemplateColumns: 'repeat(5, 1fr)',
               gap: 16,
             }}>
               {displayed.map(item => <FavCard key={item.id} item={item} />)}

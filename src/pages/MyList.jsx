@@ -121,7 +121,7 @@ function MediaCard({ item, tabColor }) {
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'none'; }}
     >
       {/* Capa */}
-      <div style={{ position: 'relative', paddingBottom: '55%', overflow: 'hidden', flexShrink: 0 }}>
+      <div style={{ position: 'relative', height: 220, overflow: 'hidden', flexShrink: 0 }}>
         <img
           src={item.coverImage?.extraLarge || item.coverImage?.large}
           alt={title}
@@ -295,7 +295,7 @@ export default function MyList() {
 
       {/* Header */}
       <div style={{
-        padding: '36px 40px 0',
+        padding: '36px 24px 0',
         background: 'linear-gradient(180deg, rgba(124,58,237,0.06) 0%, transparent 100%)',
         borderBottom: '1px solid var(--border)',
       }}>
@@ -383,13 +383,13 @@ export default function MyList() {
       </div>
 
       {/* Grid 3 colunas */}
-      <div style={{ padding: '28px 40px 60px' }}>
+      <div style={{ padding: '28px 24px 60px' }}>
         {items.length === 0 ? (
           <EmptyTab tabLabel={tab.label} tabColor={tab.color} />
         ) : filtered.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Nenhum resultado para "{search}".</p>
         ) : viewMode === 'grid' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
             {filtered.map(item => <MediaCard key={item.id} item={item} tabColor={tab.color} />)}
           </div>
         ) : (

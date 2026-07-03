@@ -27,7 +27,7 @@ function AchievementCard({ achievement }) {
         ? `linear-gradient(135deg, ${rarity.color}0d, var(--bg-card))`
         : 'var(--bg-card)',
       border: `1px solid ${unlocked ? `${rarity.color}40` : 'var(--border)'}`,
-      borderRadius: 16, padding: '18px 20px',
+      borderRadius: 16, padding: '14px 16px',
       transition: 'border-color 0.2s, transform 0.2s',
       opacity: unlocked ? 1 : 0.7,
       position: 'relative', overflow: 'hidden',
@@ -48,7 +48,7 @@ function AchievementCard({ achievement }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 10 }}>
         <div style={{
-          width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+          width: 44, height: 44, borderRadius: 12, flexShrink: 0,
           background: unlocked ? `${rarity.color}18` : 'rgba(255,255,255,0.04)',
           border: `1px solid ${unlocked ? `${rarity.color}35` : 'var(--border)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -179,7 +179,7 @@ export default function Achievements() {
 
       {/* ── HEADER ── */}
       <div style={{
-        padding: '36px 40px 32px',
+        padding: '36px 24px 32px',
         background: 'linear-gradient(180deg, rgba(251,191,36,0.07) 0%, transparent 100%)',
         borderBottom: '1px solid var(--border)',
       }}>
@@ -228,7 +228,7 @@ export default function Achievements() {
         </div>
       </div>
 
-      <div style={{ padding: '32px 40px 60px', display: 'flex', flexDirection: 'column', gap: 40 }}>
+      <div style={{ padding: '32px 24px 60px', display: 'flex', flexDirection: 'column', gap: 40 }}>
 
         {/* ── STREAK ── */}
         <section>
@@ -252,7 +252,7 @@ export default function Achievements() {
                   {catUnlocked}/{catAchievements.length}
                 </span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                 {catAchievements
                   .sort((a, b) => (b.unlocked ? 1 : 0) - (a.unlocked ? 1 : 0) || a.points - b.points)
                   .map(a => <AchievementCard key={a.id} achievement={a} />)}
