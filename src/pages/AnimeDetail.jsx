@@ -9,10 +9,7 @@ import ArcNotes from '../components/media/ArcNotes';
 import LazyImg from '../components/ui/LazyImg';
 import MediaCard from '../components/ui/MediaCard';
 import { useTitle } from '../hooks/useTitle';
-
-function stripHtml(html) {
-  return (html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
-}
+import { stripHtml } from '../lib/format';
 
 export default function AnimeDetail() {
   const { id } = useParams();
@@ -131,6 +128,7 @@ export default function AnimeDetail() {
               episodesInfo={media.streamingEpisodes}
               nextAiringEpisode={media.nextAiringEpisode}
               malId={media.idMal}
+              coverImage={media.coverImage?.large}
             />
           )}
         </div>
@@ -141,7 +139,7 @@ export default function AnimeDetail() {
           <h2 className="mb-3 text-lg font-semibold text-[var(--text)]">Personagens</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
             {media.characters.edges.slice(0, 16).map(({ node, role }) => (
-              <Link key={node.id} to={`/comparador?nome=${encodeURIComponent(node.name?.full || '')}`} className="group flex flex-col gap-1.5">
+              <Link key={node.id} to={`/personagem/${node.id}`} className="group flex flex-col gap-1.5">
                 <div className="aspect-[2/3] overflow-hidden rounded-lg bg-[var(--bg-card)]">
                   <LazyImg src={node.image?.large} alt={node.name?.full} style={{ width: '100%', height: '100%' }} />
                 </div>

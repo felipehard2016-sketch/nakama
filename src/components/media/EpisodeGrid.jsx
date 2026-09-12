@@ -35,7 +35,7 @@ function buildAniListMap(episodesInfo) {
   return map;
 }
 
-function EpisodeRow({ ep, title, thumbnail, watched, notYetAired, countdown, malId, onSelect, disabled }) {
+function EpisodeRow({ ep, title, thumbnail, fallbackImage, watched, notYetAired, countdown, malId, onSelect, disabled }) {
   const [expanded, setExpanded] = useState(false);
   const [synopsis, setSynopsis] = useState(undefined); // undefined = não buscado ainda
   const [loadingSynopsis, setLoadingSynopsis] = useState(false);
@@ -77,6 +77,10 @@ function EpisodeRow({ ep, title, thumbnail, watched, notYetAired, countdown, mal
           <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded-md bg-black/30">
             {thumbnail ? (
               <LazyImg src={thumbnail} alt="" style={{ width: '100%', height: '100%' }} />
+            ) : fallbackImage ? (
+              // Sem foto própria do episódio: usa a capa do anime como reserva
+              // (opacidade menor pra deixar claro que não é uma cena real do ep).
+              <LazyImg src={fallbackImage} alt="" style={{ width: '100%', height: '100%', opacity: 0.45 }} />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[10px] text-[var(--text-muted)]">EP</div>
             )}
@@ -108,7 +112,7 @@ function EpisodeRow({ ep, title, thumbnail, watched, notYetAired, countdown, mal
   );
 }
 
-export default function EpisodeGrid({ total, progress, episodesInfo = [], nextAiringEpisode, malId, onSelect, disabled }) {
+export default function EpisodeGrid({ total, progress, episodesInfo = [], nextAiringEpisode, malId, fallbackImage, onSelect, disabled }) {
   const [open, setOpen] = useState(false);
   const [visibleExtra, setVisibleExtra] = useState(24);
   const [jikanEpisodes, setJikanEpisodes] = useState(null); // null = ainda não buscou
@@ -154,6 +158,7 @@ export default function EpisodeGrid({ total, progress, episodesInfo = [], nextAi
               ep={ep}
               title={jikanMap.get(ep)?.title || aniListMap.get(ep)?.title}
               thumbnail={aniListMap.get(ep)?.thumbnail}
+              fallbackImage={fallbackImage}
               watched={ep <= progress}
               notYetAired={upcomingEp === ep}
               countdown={upcomingEp === ep ? formatCountdown(nextAiringEpisode.timeUntilAiring) : null}

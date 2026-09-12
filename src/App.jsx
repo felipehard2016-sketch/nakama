@@ -8,6 +8,7 @@ import Layout from './components/layout/Layout';
 import Home from './pages/Home';
 import Search from './pages/Search';
 import AnimeDetail from './pages/AnimeDetail';
+import CharacterDetail from './pages/CharacterDetail';
 import MyList from './pages/MyList';
 import Stats from './pages/Stats';
 import Calendar from './pages/Calendar';
@@ -32,6 +33,7 @@ export default function App() {
                   <Route path="login" element={<Login />} />
                   <Route path="buscar" element={<Search />} />
                   <Route path="anime/:id" element={<AnimeDetail />} />
+                  <Route path="personagem/:id" element={<CharacterDetail />} />
                   <Route path="comparador" element={<CharacterCompare />} />
                   <Route path="minha-lista" element={<ProtectedRoute><MyList /></ProtectedRoute>} />
                   <Route path="stats" element={<ProtectedRoute><Stats /></ProtectedRoute>} />

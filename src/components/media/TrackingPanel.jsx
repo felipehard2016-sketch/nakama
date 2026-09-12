@@ -12,7 +12,7 @@ import EpisodeGrid from './EpisodeGrid';
  * `mediaItemId` é o id em public.media_items (já garantido no catálogo
  * pela página que renderiza este painel via ensureMediaItem).
  */
-export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, episodesInfo, nextAiringEpisode, malId }) {
+export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, episodesInfo, nextAiringEpisode, malId, coverImage }) {
   const { user } = useAuth();
   const { showToast } = useToast();
 
@@ -120,6 +120,7 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, 
         episodesInfo={episodesInfo}
         nextAiringEpisode={nextAiringEpisode}
         malId={malId}
+        fallbackImage={coverImage}
         disabled={saving}
         onSelect={ep => save({ progress: clampProgress(ep) })}
       />

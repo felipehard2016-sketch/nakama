@@ -1,3 +1,8 @@
+/** Remove tags HTML simples das descrições da AniList (que vêm com <br>, etc.). */
+export function stripHtml(html) {
+  return (html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+}
+
 /** Formata segundos até um evento futuro em texto curto tipo "em 3d 4h". */
 export function formatCountdown(seconds) {
   if (seconds <= 0) return 'no ar';

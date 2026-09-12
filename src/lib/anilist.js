@@ -457,6 +457,7 @@ export const CHARACTER_DETAILS = `
       favourites
       media(page: 1, perPage: 20, sort: POPULARITY_DESC) {
         edges {
+          characterRole
           node {
             id
             title { romaji english }
