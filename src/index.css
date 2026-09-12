@@ -92,6 +92,11 @@
   /* Remove setas nativas do input[type=number] */
   input[type=number]::-webkit-inner-spin-button,
   input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* Fileiras de mídia com scroll horizontal (Home estilo Netflix) — barra
+     de rolagem escondida, mas o scroll continua funcionando normalmente. */
+  .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
   input[type=number] { -moz-appearance: textfield; }
 }
 

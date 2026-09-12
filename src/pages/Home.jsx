@@ -1,19 +1,63 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { queryAniList, TRENDING_ANIME } from '../lib/anilist';
-import { getUserList, STATUS_LABELS, preferredTitle } from '../lib/mediaList';
+import { Play, Flame } from 'lucide-react';
+import { queryAniList, HOME_BATCH_QUERY, HOME_GENRE_ROWS_QUERY } from '../lib/anilist';
+import { getUserList, preferredTitle } from '../lib/mediaList';
+import { cleanAniListText } from '../lib/format';
 import { useAuth } from '../context/AuthContext';
-import MediaCard from '../components/ui/MediaCard';
+import MediaRow from '../components/ui/MediaRow';
 import { useTitle } from '../hooks/useTitle';
 
-function Row({ title, children }) {
+const GENRE_LABELS = [
+  ['action', 'Ação'],
+  ['romance', 'Romance'],
+  ['comedy', 'Comédia'],
+  ['fantasy', 'Fantasia'],
+  ['drama', 'Drama'],
+  ['sliceOfLife', 'Slice of Life'],
+];
+
+function currentSeason() {
+  const month = new Date().getMonth() + 1;
+  const year = new Date().getFullYear();
+  const season = month <= 3 ? 'WINTER' : month <= 6 ? 'SPRING' : month <= 9 ? 'SUMMER' : 'FALL';
+  return { season, year };
+}
+
+function HeroBanner({ media }) {
+  if (!media) {
+    return <div className="-mx-4 aspect-[16/9] w-[calc(100%+2rem)] animate-pulse rounded-b-2xl bg-[var(--bg-card)] sm:-mx-6 sm:aspect-[16/6] sm:w-[calc(100%+3rem)] lg:-mx-8 lg:w-[calc(100%+4rem)] lg:rounded-2xl" />;
+  }
+  const title = preferredTitle(media.title);
   return (
-    <section>
-      <h2 className="mb-3 text-lg font-semibold text-[var(--text)]">{title}</h2>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-        {children}
+    <div className="relative -mx-4 w-[calc(100%+2rem)] overflow-hidden rounded-b-2xl sm:-mx-6 sm:w-[calc(100%+3rem)] lg:-mx-8 lg:w-[calc(100%+4rem)] lg:rounded-2xl">
+      <div className="aspect-[16/9] w-full sm:aspect-[16/6]">
+        <img src={media.bannerImage || media.coverImage?.extraLarge} alt="" className="h-full w-full object-cover" />
       </div>
-    </section>
+      <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/50 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg)]/70 via-transparent to-transparent" />
+
+      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2.5 p-5 sm:max-w-lg sm:p-8">
+        <span className="flex w-fit items-center gap-1 rounded bg-gradient-to-r from-purple to-blue px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+          <Flame size={11} /> Em alta agora
+        </span>
+        <h1 className="text-2xl font-black italic leading-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)] sm:text-4xl">
+          {title}
+        </h1>
+        <div className="flex flex-wrap gap-1.5">
+          {media.genres?.slice(0, 3).map(g => (
+            <span key={g} className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] text-white/90 backdrop-blur-sm">{g}</span>
+          ))}
+        </div>
+        <p className="line-clamp-2 text-xs text-white/70 sm:text-sm">{cleanAniListText(media.description)}</p>
+        <Link
+          to={`/anime/${media.id}`}
+          className="mt-1 flex w-fit items-center gap-2 rounded-lg bg-white px-5 py-2 text-sm font-bold text-black transition-transform hover:scale-105"
+        >
+          <Play size={15} className="fill-black" /> Ver detalhes
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -21,65 +65,69 @@ export default function Home() {
   useTitle('Home');
   const { user } = useAuth();
 
-  const [trending, setTrending] = useState(null);
+  const [homeData, setHomeData] = useState(null);
+  const [genreRows, setGenreRows] = useState(null);
   const [watching, setWatching] = useState(null);
 
   useEffect(() => {
-    queryAniList(TRENDING_ANIME, { page: 1, perPage: 12 })
-      .then(data => setTrending(data.Page.media))
-      .catch(() => setTrending([]));
+    const { season, year } = currentSeason();
+    queryAniList(HOME_BATCH_QUERY, { season, year })
+      .then(setHomeData)
+      .catch(() => setHomeData({}));
+    queryAniList(HOME_GENRE_ROWS_QUERY, {})
+      .then(setGenreRows)
+      .catch(() => setGenreRows({}));
   }, []);
 
   useEffect(() => {
     if (!user) { setWatching([]); return; }
     getUserList(user.id).then(({ data }) => {
-      setWatching((data || []).filter(e => e.status === 'watching').slice(0, 12));
+      setWatching((data || []).filter(e => e.status === 'watching').slice(0, 15));
     });
   }, [user]);
 
-  return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-8">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text)]">
-          {user ? `Bem-vindo de volta!` : 'Bem-vindo ao Nakama'}
-        </h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
-          {user ? 'Aqui está o que está em alta e o que você está acompanhando.' : 'Entre para começar a montar sua lista.'}
-        </p>
-      </div>
+  const watchingAsMedia = (watching || []).map(entry => ({
+    id: entry.media_items.external_id,
+    title: { romaji: entry.media_items.title },
+    coverImage: { large: entry.media_items.cover_url },
+    averageScore: null,
+  }));
 
-      {user && (
-        <Row title="Continuar assistindo">
-          {watching === null && Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="aspect-[2/3] animate-pulse rounded-lg bg-[var(--bg-card)]" />
-          ))}
-          {watching?.length === 0 && (
-            <p className="col-span-full text-sm text-[var(--text-muted)]">
-              Nada em "Assistindo" ainda — <Link to="/buscar" className="text-purple-light hover:underline">busque algo</Link> pra começar.
-            </p>
-          )}
-          {watching?.map(entry => (
-            <Link key={entry.id} to={`/anime/${entry.media_items.external_id}`} className="group flex flex-col gap-2">
-              <div className="aspect-[2/3] overflow-hidden rounded-lg bg-[var(--bg-card)]">
-                <img src={entry.media_items.cover_url} alt="" className="h-full w-full object-cover" />
-              </div>
-              <p className="line-clamp-2 text-[13px] font-medium text-[var(--text)] group-hover:text-purple-light">
-                {entry.media_items.title}
-              </p>
-              <p className="text-[11px] text-[var(--text-muted)]">
-                {STATUS_LABELS[entry.status]} · ep. {entry.progress}
-              </p>
-            </Link>
-          ))}
-        </Row>
+  const hero = homeData?.trending?.media?.[0];
+
+  return (
+    <div className="mx-auto flex max-w-6xl flex-col gap-10">
+      <HeroBanner media={hero} />
+
+      {user && watching?.length > 0 && (
+        <MediaRow title="Continuar assistindo" items={watchingAsMedia} />
       )}
 
-      <Row title="Em alta agora">
-        {trending === null && Array.from({ length: 12 }).map((_, i) => (
-          <div key={i} className="aspect-[2/3] animate-pulse rounded-lg bg-[var(--bg-card)]" />
-        ))}
-        {trending?.map(media => <MediaCard key={media.id} media={media} subtitle={preferredTitle(media.title) !== media.title?.romaji ? media.title?.romaji : undefined} />)}
-      </Row>
+      {!homeData && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="aspect-[2/3] animate-pulse rounded-lg bg-[var(--bg-card)]" />
+          ))}
+        </div>
+      )}
+
+      {homeData?.topAnime?.media?.length > 0 && (
+        <MediaRow title="Top 10 da semana" items={homeData.topAnime.media.slice(0, 10)} ranked />
+      )}
+
+      {homeData?.trending?.media?.length > 0 && (
+        <MediaRow title="Em alta agora" items={homeData.trending.media} />
+      )}
+
+      {GENRE_LABELS.map(([key, label]) => (
+        genreRows?.[key]?.media?.length > 0 && (
+          <MediaRow key={key} title={label} items={genreRows[key].media} />
+        )
+      ))}
+
+      {homeData?.topManga?.media?.length > 0 && (
+        <MediaRow title="Mangás em alta" items={homeData.topManga.media} />
+      )}
     </div>
   );
 }

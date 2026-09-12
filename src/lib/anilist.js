@@ -154,6 +154,38 @@ export const HOME_BATCH_QUERY = `
   }
 `;
 
+/* ── Fileiras por gênero da Home, tudo numa única requisição ── */
+const GENRE_ROW_FIELDS = `
+  id
+  title { romaji english }
+  coverImage { large extraLarge color }
+  averageScore
+  format
+  episodes
+`;
+export const HOME_GENRE_ROWS_QUERY = `
+  query HomeGenreRows {
+    action: Page(page: 1, perPage: 15) {
+      media(genre: "Action", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+    romance: Page(page: 1, perPage: 15) {
+      media(genre: "Romance", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+    comedy: Page(page: 1, perPage: 15) {
+      media(genre: "Comedy", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+    fantasy: Page(page: 1, perPage: 15) {
+      media(genre: "Fantasy", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+    drama: Page(page: 1, perPage: 15) {
+      media(genre: "Drama", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+    sliceOfLife: Page(page: 1, perPage: 15) {
+      media(genre: "Slice of Life", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+  }
+`;
+
 export const TRENDING_ANIME = `
   query ($page: Int, $perPage: Int) {
     Page(page: $page, perPage: $perPage) {
