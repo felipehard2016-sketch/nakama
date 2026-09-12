@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Heart, Cake, Droplet, Sparkles } from 'lucide-react';
+import { Heart, Cake, Droplet, Sparkles, Crown } from 'lucide-react';
 import { queryAniList, CHARACTER_DETAILS } from '../lib/anilist';
 import { preferredTitle } from '../lib/mediaList';
 import { parseCharacterBio } from '../lib/format';
 import { iconForStatLabel } from '../lib/characterIcons';
+import { extractDominantColor } from '../lib/dominantColor';
 import Formatted from '../components/ui/Formatted';
 import LazyImg from '../components/ui/LazyImg';
 import { useTitle } from '../hooks/useTitle';
 
 const ROLE_LABELS = { MAIN: 'Principal', SUPPORTING: 'Coadjuvante', BACKGROUND: 'Participação' };
 const GENDER_LABELS = { Male: 'Masculino', Female: 'Feminino', 'Non-binary': 'Não-binário' };
+const DEFAULT_ACCENT = '#7c3aed'; // roxo da marca — usado se a extração de cor falhar
 
 // Ordem de prioridade pra escolher os 3 traços em destaque — poder/fruta
 // primeiro (o mais "marcante" na maioria das obras), depois arma, depois
@@ -34,14 +36,6 @@ function pickHighlights(stats) {
   return picked.slice(0, 3);
 }
 
-// Posições/rotações fixas pras capas "espalhadas" no fundo do herói —
-// só decorativas, escondidas em telas pequenas pra não poluir o mobile.
-const SCATTER_STYLE = [
-  { className: 'left-[6%] top-[8%] h-24 w-16 rotate-[-10deg]' },
-  { className: 'right-[10%] top-[14%] h-28 w-20 rotate-[8deg]' },
-  { className: 'right-[24%] bottom-[6%] h-20 w-14 rotate-[-6deg]' },
-];
-
 function StatChip({ icon: Icon, children }) {
   return (
     <span className="flex items-center gap-1.5 rounded-full bg-black/30 px-3 py-1 text-xs text-white/90 backdrop-blur-sm">
@@ -55,6 +49,7 @@ export default function CharacterDetail() {
   const [character, setCharacter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [accent, setAccent] = useState(DEFAULT_ACCENT);
 
   useTitle(character?.name?.full);
 
@@ -68,6 +63,18 @@ export default function CharacterDetail() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [id]);
+
+  // Extrai a cor dominante do retrato — dá uma identidade visual própria
+  // pra cada personagem em vez do roxo genérico de sempre. Se falhar
+  // (CORS, imagem ausente, etc.), fica no roxo padrão da marca.
+  useEffect(() => {
+    if (!character?.image?.large) return;
+    let cancelled = false;
+    extractDominantColor(character.image.large).then(color => {
+      if (!cancelled && color) setAccent(color);
+    });
+    return () => { cancelled = true; };
+  }, [character?.image?.large]);
 
   if (loading) {
     return <div className="flex min-h-[50vh] items-center justify-center">
@@ -88,25 +95,21 @@ export default function CharacterDetail() {
   const highlights = pickHighlights(stats);
   const restStats = stats.filter(s => !highlights.includes(s));
   const appearances = character.media?.edges || [];
-  const scatterCovers = appearances.map(e => e.node.coverImage?.large).filter(Boolean).slice(0, 3);
+  const topAppearance = appearances[0];
+  const isProtagonist = topAppearance?.characterRole === 'MAIN';
+  const heroBanner = topAppearance?.node?.bannerImage;
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-8">
-      {/* ── Herói: capas de outras obras espalhadas + retrato borrado no fundo ── */}
+    <div className="mx-auto flex max-w-4xl flex-col gap-8" style={{ '--char-accent': accent }}>
+      {/* ── Herói: banner cinematográfico do anime mais popular dele, cor de destaque própria ── */}
       <div className="relative isolate overflow-hidden rounded-2xl bg-black">
         <div className="absolute inset-0">
-          {character.image?.large && (
-            <img src={character.image.large} alt="" className="h-full w-full scale-125 object-cover opacity-50 blur-2xl" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-purple/20" />
-          {scatterCovers.map((cover, i) => (
-            <img
-              key={cover}
-              src={cover}
-              alt=""
-              className={`absolute hidden rounded-lg object-cover opacity-30 shadow-2xl ring-1 ring-white/10 sm:block ${SCATTER_STYLE[i].className}`}
-            />
-          ))}
+          {heroBanner ? (
+            <img src={heroBanner} alt="" className="h-full w-full object-cover opacity-45" />
+          ) : character.image?.large ? (
+            <img src={character.image.large} alt="" className="h-full w-full scale-125 object-cover opacity-40 blur-2xl" />
+          ) : null}
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-black/60 to-[var(--char-accent)]/25" />
         </div>
 
         <div className="relative flex flex-col items-center gap-5 px-6 pb-7 pt-12 sm:flex-row sm:items-end sm:px-10">
@@ -114,12 +117,19 @@ export default function CharacterDetail() {
             <img
               src={character.image.large}
               alt={character.name?.full}
-              className="h-60 w-44 shrink-0 rounded-xl object-cover shadow-[0_16px_48px_rgba(0,0,0,0.6)] ring-2 ring-purple/50 transition-transform duration-300 hover:-rotate-2 hover:scale-105"
+              className="h-60 w-44 shrink-0 rounded-xl object-cover ring-2 ring-[var(--char-accent)] transition-transform duration-300 hover:-rotate-2 hover:scale-105"
+              style={{ boxShadow: `0 16px 48px ${accent}70` }}
             />
           )}
 
           <div className="flex-1 text-center sm:pb-2 sm:text-left">
-            <h1 className="text-3xl font-black italic tracking-tight text-white drop-shadow-[0_2px_12px_rgba(124,58,237,0.6)] sm:text-4xl">
+            {isProtagonist && (
+              <span className="mb-2 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black"
+                style={{ background: accent }}>
+                <Crown size={11} /> Protagonista
+              </span>
+            )}
+            <h1 className="text-3xl font-black italic tracking-tight text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.8)] sm:text-4xl">
               {character.name?.full}
             </h1>
             {character.name?.native && <p className="mt-0.5 text-sm text-white/60">{character.name.native}</p>}
@@ -127,7 +137,9 @@ export default function CharacterDetail() {
             {character.name?.alternative?.filter(Boolean).length > 0 && (
               <div className="mt-2 flex flex-wrap justify-center gap-1.5 sm:justify-start">
                 {character.name.alternative.filter(Boolean).map(alt => (
-                  <span key={alt} className="rounded-full bg-purple/25 px-2.5 py-0.5 text-[11px] text-purple-light">{alt}</span>
+                  <span key={alt} className="rounded-full px-2.5 py-0.5 text-[11px]" style={{ background: `${accent}30`, color: accent }}>
+                    {alt}
+                  </span>
                 ))}
               </div>
             )}
@@ -153,11 +165,16 @@ export default function CharacterDetail() {
             return (
               <div
                 key={s.label}
-                className="relative overflow-hidden border-l-4 border-purple bg-gradient-to-br from-purple/25 via-[var(--bg-card)] to-blue/10 p-4 [clip-path:polygon(0_0,100%_0,100%_100%,4%_100%)]"
-                style={{ animation: 'fadeIn .4s ease both', animationDelay: `${i * 90}ms` }}
+                className="relative overflow-hidden bg-[var(--bg-card)] p-4 [clip-path:polygon(0_0,100%_0,100%_100%,4%_100%)]"
+                style={{
+                  borderLeft: `4px solid ${accent}`,
+                  background: `linear-gradient(135deg, ${accent}25, var(--bg-card) 60%)`,
+                  animation: 'fadeIn .4s ease both',
+                  animationDelay: `${i * 90}ms`,
+                }}
               >
-                <Icon size={22} className="text-purple-light" />
-                <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-purple-light">{s.label}</p>
+                <Icon size={22} style={{ color: accent }} />
+                <p className="mt-2 text-[10px] font-bold uppercase tracking-wider" style={{ color: accent }}>{s.label}</p>
                 <p className="text-sm font-semibold leading-snug text-white"><Formatted text={s.value} /></p>
               </div>
             );
@@ -171,7 +188,7 @@ export default function CharacterDetail() {
             const Icon = iconForStatLabel(s.label);
             return (
               <div key={s.label} className="flex items-start gap-2.5">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-purple/15 text-purple-light">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md" style={{ background: `${accent}22`, color: accent }}>
                   {Icon ? <Icon size={14} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
                 </div>
                 <div>
@@ -185,12 +202,22 @@ export default function CharacterDetail() {
       )}
 
       {paragraphs.length > 0 && (
-        <div className="flex flex-col gap-3">
-          {paragraphs.map((p, i) => (
-            <p key={i} className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
-              <Formatted text={p} />
-            </p>
-          ))}
+        <div>
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Biografia</p>
+          <div className="flex flex-col gap-3">
+            {paragraphs.map((p, i) => (
+              <p
+                key={i}
+                className={`whitespace-pre-line leading-relaxed text-[var(--text-secondary)] ${
+                  i === 0
+                    ? 'text-base first-letter:float-left first-letter:mr-2 first-letter:mt-1 first-letter:text-5xl first-letter:font-black first-letter:leading-[0.8] first-letter:text-[var(--char-accent)]'
+                    : 'text-sm'
+                }`}
+              >
+                <Formatted text={p} />
+              </p>
+            ))}
+          </div>
         </div>
       )}
 
