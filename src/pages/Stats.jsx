@@ -8,12 +8,25 @@ import { levelFromEpisodes } from '../lib/leveling';
 import GenreBars from '../components/ui/GenreBars';
 import { useTitle } from '../hooks/useTitle';
 
+// Corte diagonal + leitura em mono — mesma identidade HUD do resto do
+// app, aplicada aqui aos "readouts" numéricos de stats.
+const TILE_CUT = 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)';
+const TILE_ICON_CUT = 'polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px)';
+
 function Tile({ icon: Icon, value, label }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4 text-center">
-      <Icon size={18} className="text-purple-light" />
-      <p className="text-xl font-bold text-[var(--text)]">{value}</p>
-      <p className="text-[11px] text-[var(--text-muted)]">{label}</p>
+    <div
+      className="flex flex-col items-center gap-2 border border-[var(--border)] bg-[var(--bg-card)] p-4 text-center"
+      style={{ clipPath: TILE_CUT }}
+    >
+      <div
+        className="flex h-9 w-9 items-center justify-center bg-purple/10 text-purple-light"
+        style={{ clipPath: TILE_ICON_CUT }}
+      >
+        <Icon size={16} />
+      </div>
+      <p className="font-mono text-xl font-bold tabular-nums text-[var(--text)]">{value}</p>
+      <p className="font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
     </div>
   );
 }

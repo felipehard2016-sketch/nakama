@@ -1,10 +1,15 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import MediaCard from './MediaCard';
+import MediaCard, { FRAME_CLIP } from './MediaCard';
 import LazyImg from './LazyImg';
 
-/** Card do Top 10 estilo Netflix: número gigante contornado atrás do pôster. */
+/**
+ * Card do Top 10 estilo Netflix: número gigante contornado atrás do
+ * pôster. Usa o mesmo corte diagonal (FRAME_CLIP) e glow do MediaCard
+ * padrão — um Top 10 também é um "destaque", então segue a mesma
+ * moldura, só que maior.
+ */
 function RankedCard({ media, rank }) {
   return (
     <Link to={`/anime/${media.id}`} className="group flex items-end">
@@ -14,7 +19,10 @@ function RankedCard({ media, rank }) {
       >
         {rank}
       </span>
-      <div className="relative z-10 aspect-[2/3] w-24 shrink-0 overflow-hidden rounded-lg bg-[var(--bg-card)] shadow-lg transition-transform group-hover:scale-105 sm:w-28">
+      <div
+        className="relative z-10 aspect-[2/3] w-24 shrink-0 overflow-hidden border border-[var(--border)] bg-[var(--bg-card)] transition-[filter,transform] duration-200 group-hover:-translate-y-1 group-hover:[filter:drop-shadow(0_0_16px_var(--purple-glow))] group-focus-visible:-translate-y-1 group-focus-visible:[filter:drop-shadow(0_0_16px_var(--purple-glow))] sm:w-28"
+        style={{ clipPath: FRAME_CLIP }}
+      >
         <LazyImg src={media.coverImage?.large} alt="" style={{ width: '100%', height: '100%' }} />
       </div>
     </Link>

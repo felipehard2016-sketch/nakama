@@ -7,7 +7,7 @@ import { preferredTitle } from '../../lib/mediaList';
    identidade "HUD" aprovada; ver mockup em Artifact. Mantido pequeno o
    bastante para não atrapalhar a leitura do pôster. */
 const CUT = 14;
-const FRAME_CLIP = `polygon(${CUT}px 0, 100% 0, 100% calc(100% - ${CUT}px), calc(100% - ${CUT}px) 100%, 0 100%, 0 ${CUT}px)`;
+export const FRAME_CLIP = `polygon(${CUT}px 0, 100% 0, 100% calc(100% - ${CUT}px), calc(100% - ${CUT}px) 100%, 0 100%, 0 ${CUT}px)`;
 const TAG_CLIP_R = 'polygon(6px 0, 100% 0, 100% 100%, 0 100%, 0 6px)';
 const TAG_CLIP_L = 'polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%)';
 

@@ -37,7 +37,7 @@ export default function GenreBars({ data }) {
                 style={{ width: `${pct}%`, '--genre-color-light': slot.light, '--genre-color-dark': slot.dark }}
               />
             </div>
-            <span className="w-6 shrink-0 text-right text-xs font-medium text-[var(--text)]">{d.count}</span>
+            <span className="w-6 shrink-0 text-right font-mono text-xs font-medium tabular-nums text-[var(--text)]">{d.count}</span>
           </div>
         );
       })}
