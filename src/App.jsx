@@ -1,29 +1,44 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { SidebarProvider } from './context/SidebarContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import Layout from './components/layout/Layout';
+import Home from './pages/Home';
+import Search from './pages/Search';
+import MyList from './pages/MyList';
+import Stats from './pages/Stats';
+import Calendar from './pages/Calendar';
+import Achievements from './pages/Achievements';
+import CharacterCompare from './pages/CharacterCompare';
+import Profile from './pages/Profile';
 
 /*
- * Passo 1 — estrutura do projeto (Vite + React + Tailwind + PWA).
- * Esta tela é só uma checagem visual: confirma que o tema escuro, as
- * cores de marca e o service worker estão de pé antes de construir o
- * layout de verdade (sidebar fixa + rotas) no passo 2.
+ * Passo 2 — layout base responsivo: sidebar fixa a partir de tablet,
+ * gaveta em mobile. Rotas apontam para páginas placeholder (PageStub);
+ * dado real só entra a partir do passo 5.
  */
 export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>
-          <div className="flex min-h-screen w-full flex-col items-center justify-center gap-6 bg-[var(--bg)] px-6 text-center">
-            <img src="/favicon.svg" alt="Nakama" className="h-16 w-auto drop-shadow-[0_0_24px_var(--purple-glow)]" />
-            <div>
-              <h1 className="bg-gradient-to-r from-purple to-blue bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
-                Nakama
-              </h1>
-              <p className="mt-2 text-sm text-[var(--text-muted)]">
-                Estrutura do projeto pronta — Vite + React + Tailwind + PWA.
-              </p>
-            </div>
-          </div>
+          <SidebarProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Home />} />
+                  <Route path="buscar" element={<Search />} />
+                  <Route path="minha-lista" element={<MyList />} />
+                  <Route path="stats" element={<Stats />} />
+                  <Route path="calendario" element={<Calendar />} />
+                  <Route path="conquistas" element={<Achievements />} />
+                  <Route path="comparador" element={<CharacterCompare />} />
+                  <Route path="perfil" element={<Profile />} />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </SidebarProvider>
         </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>
