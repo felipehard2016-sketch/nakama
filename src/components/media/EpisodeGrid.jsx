@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, Check, Clock } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp, Check, Clock, Info } from 'lucide-react';
 import LazyImg from '../ui/LazyImg';
 import { formatCountdown } from '../../lib/format';
+import { getEpisodeList, getEpisodeSynopsis } from '../../lib/jikan';
 
-// Sites que a AniList agrega e que costumam ter dado mais completo/confiável.
-// Quando mais de um site cobre o mesmo episódio, o primeiro da lista vence.
+// Sites que a AniList agrega e que costumam ter dado mais completo/confiável
+// pra imagem (Jikan/MAL não tem thumbnail de episódio, só título/data).
 const PREFERRED_SITES = ['Crunchyroll', 'Funimation', 'HIDIVE', 'Netflix', 'Hulu'];
 
 function parseEpisodeNumber(title) {
@@ -14,12 +15,13 @@ function parseEpisodeNumber(title) {
 
 /*
  * A ordem de media.streamingEpisodes (AniList) NÃO é garantida por
- * episódio — alguns sites listam do mais recente pro mais antigo. Usar
- * a posição no array como número do episódio dá número errado (foi
- * exatamente o bug reportado: badge e título batendo em episódios
- * diferentes). Por isso o número de verdade vem do texto do título.
+ * episódio — alguns sites listam do mais recente pro mais antigo — daí
+ * extrair o número de dentro do título em vez de usar a posição no
+ * array. Serve só de base; o título é substituído pelo do Jikan/MAL
+ * assim que a lista de lá carrega (número lá vem estruturado, não por
+ * regex — mais confiável).
  */
-function buildEpisodeMap(episodesInfo) {
+function buildAniListMap(episodesInfo) {
   const map = new Map();
   const sorted = [...episodesInfo].sort((a, b) => {
     const ai = PREFERRED_SITES.indexOf(a.site);
@@ -33,7 +35,11 @@ function buildEpisodeMap(episodesInfo) {
   return map;
 }
 
-function EpisodeRow({ ep, info, watched, notYetAired, countdown, onSelect, disabled }) {
+function EpisodeRow({ ep, title, thumbnail, watched, notYetAired, countdown, malId, onSelect, disabled }) {
+  const [expanded, setExpanded] = useState(false);
+  const [synopsis, setSynopsis] = useState(undefined); // undefined = não buscado ainda
+  const [loadingSynopsis, setLoadingSynopsis] = useState(false);
+
   if (notYetAired) {
     return (
       <div className="flex w-full items-center gap-3 rounded-lg p-2 opacity-70">
@@ -50,43 +56,79 @@ function EpisodeRow({ ep, info, watched, notYetAired, countdown, onSelect, disab
     );
   }
 
+  const toggleExpand = async () => {
+    if (!expanded && synopsis === undefined && malId) {
+      setLoadingSynopsis(true);
+      const text = await getEpisodeSynopsis(malId, ep);
+      setSynopsis(text);
+      setLoadingSynopsis(false);
+    }
+    setExpanded(x => !x);
+  };
+
   return (
-    <button
-      onClick={() => onSelect(ep)}
-      disabled={disabled}
-      className={`flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors ${
-        watched ? 'bg-purple/15' : 'hover:bg-white/5'
-      }`}
-    >
-      <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded-md bg-black/30">
-        {info?.thumbnail ? (
-          <LazyImg src={info.thumbnail} alt="" style={{ width: '100%', height: '100%' }} />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-[10px] text-[var(--text-muted)]">EP</div>
+    <div className={`rounded-lg ${watched ? 'bg-purple/15' : ''}`}>
+      <div className="flex w-full items-center gap-2.5 p-2">
+        <button
+          onClick={() => onSelect(ep)}
+          disabled={disabled}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        >
+          <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded-md bg-black/30">
+            {thumbnail ? (
+              <LazyImg src={thumbnail} alt="" style={{ width: '100%', height: '100%' }} />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[10px] text-[var(--text-muted)]">EP</div>
+            )}
+            <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              {ep}
+            </span>
+          </div>
+          <p className={`min-w-0 flex-1 truncate text-xs leading-snug ${watched ? 'font-medium text-white' : 'text-[var(--text-secondary)]'}`}>
+            {title || `Episódio ${ep}`}
+          </p>
+        </button>
+        {watched && <Check size={16} className="shrink-0 text-purple-light" />}
+        {malId && (
+          <button
+            onClick={toggleExpand}
+            aria-label="Ver sinopse do episódio"
+            className="shrink-0 rounded-md p-1 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text)]"
+          >
+            {expanded ? <ChevronUp size={14} /> : <Info size={14} />}
+          </button>
         )}
-        <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-          {ep}
-        </span>
       </div>
-      <p className={`min-w-0 flex-1 truncate text-xs leading-snug ${watched ? 'font-medium text-white' : 'text-[var(--text-secondary)]'}`}>
-        {info?.title || `Episódio ${ep}`}
-      </p>
-      {watched && <Check size={16} className="shrink-0 text-purple-light" />}
-    </button>
+      {expanded && (
+        <p className="px-2 pb-2.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+          {loadingSynopsis ? 'Carregando sinopse…' : (synopsis || 'Sem sinopse disponível para este episódio.')}
+        </p>
+      )}
+    </div>
   );
 }
 
-export default function EpisodeGrid({ total, progress, episodesInfo = [], nextAiringEpisode, onSelect, disabled }) {
+export default function EpisodeGrid({ total, progress, episodesInfo = [], nextAiringEpisode, malId, onSelect, disabled }) {
   const [open, setOpen] = useState(false);
-  // Quando nem o total nem a próxima estreia são conhecidos, mostra uma
-  // folga além do progresso atual e deixa expandir manualmente — sem
-  // isso a grade "adivinharia" um total e cortaria episódios de verdade.
   const [visibleExtra, setVisibleExtra] = useState(24);
+  const [jikanEpisodes, setJikanEpisodes] = useState(null); // null = ainda não buscou
 
-  const episodeMap = useMemo(() => buildEpisodeMap(episodesInfo), [episodesInfo]);
+  const aniListMap = useMemo(() => buildAniListMap(episodesInfo), [episodesInfo]);
+  const jikanMap = useMemo(() => {
+    const map = new Map();
+    for (const ep of jikanEpisodes || []) map.set(ep.number, ep);
+    return map;
+  }, [jikanEpisodes]);
 
-  // Anime em exibição sem contagem fechada: o episódio "nextAiringEpisode"
-  // ainda não saiu — usamos ele como fronteira em vez de adivinhar.
+  // Busca a lista do Jikan só quando a grade é aberta pela primeira vez
+  // (evita gastar chamada de API em anime que o usuário nunca expande).
+  useEffect(() => {
+    if (!open || !malId || jikanEpisodes !== null) return;
+    let cancelled = false;
+    getEpisodeList(malId).then(list => { if (!cancelled) setJikanEpisodes(list); });
+    return () => { cancelled = true; };
+  }, [open, malId, jikanEpisodes]);
+
   const upcomingEp = !total ? nextAiringEpisode?.episode : null;
   const count = total || (upcomingEp ? upcomingEp : Math.max(progress, 0) + visibleExtra);
   const episodes = Array.from({ length: count }, (_, i) => i + 1);
@@ -103,14 +145,19 @@ export default function EpisodeGrid({ total, progress, episodesInfo = [], nextAi
 
       {open && (
         <div className="flex max-h-[28rem] flex-col gap-0.5 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-2">
+          {malId && jikanEpisodes === null && (
+            <p className="px-1 pb-1 text-[10px] text-[var(--text-muted)]">Carregando dados de episódio…</p>
+          )}
           {episodes.map(ep => (
             <EpisodeRow
               key={ep}
               ep={ep}
-              info={episodeMap.get(ep)}
+              title={jikanMap.get(ep)?.title || aniListMap.get(ep)?.title}
+              thumbnail={aniListMap.get(ep)?.thumbnail}
               watched={ep <= progress}
               notYetAired={upcomingEp === ep}
               countdown={upcomingEp === ep ? formatCountdown(nextAiringEpisode.timeUntilAiring) : null}
+              malId={malId}
               onSelect={onSelect}
               disabled={disabled}
             />

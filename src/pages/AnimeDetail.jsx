@@ -130,6 +130,7 @@ export default function AnimeDetail() {
               initialEntry={entry}
               episodesInfo={media.streamingEpisodes}
               nextAiringEpisode={media.nextAiringEpisode}
+              malId={media.idMal}
             />
           )}
         </div>
