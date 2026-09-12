@@ -129,6 +129,7 @@ export default function AnimeDetail() {
               maxProgress={maxProgress}
               initialEntry={entry}
               episodesInfo={media.streamingEpisodes}
+              nextAiringEpisode={media.nextAiringEpisode}
             />
           )}
         </div>

@@ -3,16 +3,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getUserList, preferredTitle } from '../lib/mediaList';
 import { queryAniList, CALENDAR_SCHEDULE } from '../lib/anilist';
+import { formatCountdown } from '../lib/format';
 import { useTitle } from '../hooks/useTitle';
-
-function formatCountdown(seconds) {
-  if (seconds <= 0) return 'no ar';
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  if (days > 0) return `em ${days}d ${hours}h`;
-  const minutes = Math.floor((seconds % 3600) / 60);
-  return `em ${hours}h ${minutes}min`;
-}
 
 export default function Calendar() {
   useTitle('Calendário');

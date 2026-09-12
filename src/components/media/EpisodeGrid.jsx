@@ -1,57 +1,95 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp, Check, Clock } from 'lucide-react';
 import LazyImg from '../ui/LazyImg';
+import { formatCountdown } from '../../lib/format';
+
+// Sites que a AniList agrega e que costumam ter dado mais completo/confiável.
+// Quando mais de um site cobre o mesmo episódio, o primeiro da lista vence.
+const PREFERRED_SITES = ['Crunchyroll', 'Funimation', 'HIDIVE', 'Netflix', 'Hulu'];
+
+function parseEpisodeNumber(title) {
+  const match = title?.match(/(?:episode|ep\.?)\s*(\d+)/i);
+  return match ? parseInt(match[1], 10) : null;
+}
 
 /*
- * Grade de episódios pra marcar progresso rápido em animes longos.
- * Clicar no episódio N marca progresso = N de uma vez (tudo até ali
- * fica "assistido", já que progresso já era só "assisti até aqui" por
- * baixo dos panos) — não precisa clicar +1 uma centena de vezes.
- *
- * `episodesInfo` vem de media.streamingEpisodes (AniList) — nem todo
- * anime tem essa informação, e quando tem nem sempre cobre todos os
- * episódios. Por isso: os que têm imagem/nome viram uma linha "rica";
- * o resto cai de volta pro quadradinho simples (só o número).
+ * A ordem de media.streamingEpisodes (AniList) NÃO é garantida por
+ * episódio — alguns sites listam do mais recente pro mais antigo. Usar
+ * a posição no array como número do episódio dá número errado (foi
+ * exatamente o bug reportado: badge e título batendo em episódios
+ * diferentes). Por isso o número de verdade vem do texto do título.
  */
-function EpisodeRow({ ep, title, thumbnail, watched, onSelect, disabled }) {
+function buildEpisodeMap(episodesInfo) {
+  const map = new Map();
+  const sorted = [...episodesInfo].sort((a, b) => {
+    const ai = PREFERRED_SITES.indexOf(a.site);
+    const bi = PREFERRED_SITES.indexOf(b.site);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+  for (const ep of sorted) {
+    const num = parseEpisodeNumber(ep.title);
+    if (num != null && !map.has(num)) map.set(num, ep);
+  }
+  return map;
+}
+
+function EpisodeRow({ ep, info, watched, notYetAired, countdown, onSelect, disabled }) {
+  if (notYetAired) {
+    return (
+      <div className="flex w-full items-center gap-3 rounded-lg p-2 opacity-70">
+        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-md bg-white/5 text-[10px] font-medium text-[var(--text-muted)]">
+          EP {ep}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-[var(--text-muted)]">Ainda não lançado</p>
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-purple-light">
+            <Clock size={11} /> {countdown}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <button
       onClick={() => onSelect(ep)}
       disabled={disabled}
-      className={`flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors ${
         watched ? 'bg-purple/15' : 'hover:bg-white/5'
       }`}
     >
-      <div className="relative h-9 w-16 shrink-0 overflow-hidden rounded-md bg-black/30">
-        {thumbnail ? (
-          <LazyImg src={thumbnail} alt="" style={{ width: '100%', height: '100%' }} />
+      <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded-md bg-black/30">
+        {info?.thumbnail ? (
+          <LazyImg src={info.thumbnail} alt="" style={{ width: '100%', height: '100%' }} />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[9px] text-[var(--text-muted)]">EP</div>
+          <div className="flex h-full w-full items-center justify-center text-[10px] text-[var(--text-muted)]">EP</div>
         )}
-        <span className="absolute bottom-0.5 left-0.5 rounded bg-black/70 px-1 text-[9px] font-semibold text-white">
+        <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
           {ep}
         </span>
       </div>
-      <p className={`min-w-0 flex-1 truncate text-[11px] leading-tight ${watched ? 'font-medium text-white' : 'text-[var(--text-secondary)]'}`}>
-        {title || `Episódio ${ep}`}
+      <p className={`min-w-0 flex-1 truncate text-xs leading-snug ${watched ? 'font-medium text-white' : 'text-[var(--text-secondary)]'}`}>
+        {info?.title || `Episódio ${ep}`}
       </p>
-      {watched && <Check size={14} className="shrink-0 text-purple-light" />}
+      {watched && <Check size={16} className="shrink-0 text-purple-light" />}
     </button>
   );
 }
 
-export default function EpisodeGrid({ total, progress, episodesInfo = [], onSelect, disabled }) {
+export default function EpisodeGrid({ total, progress, episodesInfo = [], nextAiringEpisode, onSelect, disabled }) {
   const [open, setOpen] = useState(false);
-  // Quando o total de episódios ainda não é conhecido (anime em exibição
-  // sem contagem fechada), mostra uma folga além do progresso atual e
-  // deixa expandir manualmente — sem isso já marcaria episódios sozinho.
-  const [visibleCount, setVisibleCount] = useState(() => Math.max(progress + 12, 12));
+  // Quando nem o total nem a próxima estreia são conhecidos, mostra uma
+  // folga além do progresso atual e deixa expandir manualmente — sem
+  // isso a grade "adivinharia" um total e cortaria episódios de verdade.
+  const [visibleExtra, setVisibleExtra] = useState(24);
 
-  const count = total || visibleCount;
+  const episodeMap = useMemo(() => buildEpisodeMap(episodesInfo), [episodesInfo]);
+
+  // Anime em exibição sem contagem fechada: o episódio "nextAiringEpisode"
+  // ainda não saiu — usamos ele como fronteira em vez de adivinhar.
+  const upcomingEp = !total ? nextAiringEpisode?.episode : null;
+  const count = total || (upcomingEp ? upcomingEp : Math.max(progress, 0) + visibleExtra);
   const episodes = Array.from({ length: count }, (_, i) => i + 1);
-  const richCount = episodesInfo.length; // quantos episódios têm foto/nome vindos da AniList
-  const richEpisodes = episodes.filter(ep => ep <= richCount);
-  const plainEpisodes = episodes.filter(ep => ep > richCount);
 
   return (
     <div className="flex flex-col gap-2">
@@ -64,57 +102,24 @@ export default function EpisodeGrid({ total, progress, episodesInfo = [], onSele
       </button>
 
       {open && (
-        <div className="flex max-h-80 flex-col overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-2">
-          {richEpisodes.length > 0 && (
-            <div className="flex flex-col gap-0.5">
-              {richEpisodes.map(ep => (
-                <EpisodeRow
-                  key={ep}
-                  ep={ep}
-                  title={episodesInfo[ep - 1]?.title}
-                  thumbnail={episodesInfo[ep - 1]?.thumbnail}
-                  watched={ep <= progress}
-                  onSelect={onSelect}
-                  disabled={disabled}
-                />
-              ))}
-            </div>
-          )}
+        <div className="flex max-h-[28rem] flex-col gap-0.5 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-2">
+          {episodes.map(ep => (
+            <EpisodeRow
+              key={ep}
+              ep={ep}
+              info={episodeMap.get(ep)}
+              watched={ep <= progress}
+              notYetAired={upcomingEp === ep}
+              countdown={upcomingEp === ep ? formatCountdown(nextAiringEpisode.timeUntilAiring) : null}
+              onSelect={onSelect}
+              disabled={disabled}
+            />
+          ))}
 
-          {plainEpisodes.length > 0 && (
-            <>
-              {richEpisodes.length > 0 && (
-                <p className="mb-1.5 mt-3 px-1 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
-                  Mais episódios
-                </p>
-              )}
-              <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8">
-                {plainEpisodes.map(ep => {
-                  const watched = ep <= progress;
-                  return (
-                    <button
-                      key={ep}
-                      onClick={() => onSelect(ep)}
-                      disabled={disabled}
-                      title={`Episódio ${ep}`}
-                      className={`aspect-square rounded-md text-[11px] font-medium transition-colors ${
-                        watched
-                          ? 'bg-purple text-white'
-                          : 'bg-white/5 text-[var(--text-muted)] hover:bg-white/10 hover:text-[var(--text)]'
-                      }`}
-                    >
-                      {ep}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          {!total && (
+          {!total && !upcomingEp && (
             <button
-              onClick={() => setVisibleCount(c => c + 24)}
-              className="mt-2 w-full rounded-md bg-white/5 py-1.5 text-[11px] text-[var(--text-muted)] hover:text-[var(--text)]"
+              onClick={() => setVisibleExtra(c => c + 24)}
+              className="mt-1 w-full rounded-md bg-white/5 py-1.5 text-[11px] text-[var(--text-muted)] hover:text-[var(--text)]"
             >
               Carregar mais…
             </button>
