@@ -90,6 +90,7 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, 
           onClick={() => save({ favorite: !entry?.favorite })}
           disabled={saving}
           aria-label="Favoritar"
+          aria-pressed={!!entry?.favorite}
           className="text-[var(--text-muted)] transition-colors hover:text-pink-400"
         >
           <Heart size={18} className={entry?.favorite ? 'fill-pink-400 text-pink-400' : ''} />
@@ -102,6 +103,7 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, 
             key={s}
             onClick={() => save({ status: s })}
             disabled={saving}
+            aria-pressed={entry?.status === s}
             className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
               entry?.status === s
                 ? 'bg-purple/20 text-[var(--text)]'
@@ -120,6 +122,7 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, 
             <button
               onClick={() => save({ progress: clampProgress(progress - 1) })}
               disabled={saving || progress <= 0}
+              aria-label="Diminuir progresso em 1"
               style={{ clipPath: STEP_CUT }}
               className="flex h-7 w-7 items-center justify-center border border-[var(--border)] bg-[var(--bg-card)] text-sm text-purple-light transition-[filter] hover:[filter:drop-shadow(0_0_8px_var(--purple-glow))] disabled:opacity-30 disabled:hover:filter-none"
             >
@@ -134,6 +137,7 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, 
             <button
               onClick={() => save({ progress: clampProgress(progress + 1) })}
               disabled={saving || (maxProgress && progress >= maxProgress)}
+              aria-label="Aumentar progresso em 1"
               style={{ clipPath: STEP_CUT }}
               className="flex h-7 w-7 items-center justify-center border border-[var(--border)] bg-[var(--bg-card)] text-sm text-purple-light transition-[filter] hover:[filter:drop-shadow(0_0_8px_var(--purple-glow))] disabled:opacity-30 disabled:hover:filter-none"
             >
@@ -143,7 +147,15 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, 
         </div>
 
         {!!maxProgress && (
-          <div className="flex gap-[3px]">
+          <div
+            className="flex gap-[3px]"
+            role="progressbar"
+            aria-label="Progresso de episódios"
+            aria-valuemin={0}
+            aria-valuemax={maxProgress}
+            aria-valuenow={progress}
+            aria-valuetext={`${progress} de ${maxProgress}`}
+          >
             {segments.map((state, i) => (
               <i
                 key={i}
@@ -171,8 +183,9 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, 
       />
 
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-[var(--text-muted)]">Nota</span>
+        <label htmlFor="tracking-rating" className="text-xs text-[var(--text-muted)]">Nota</label>
         <input
+          id="tracking-rating"
           type="number"
           min={0}
           max={10}
@@ -180,6 +193,7 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, 
           value={entry?.rating ?? ''}
           onChange={e => save({ rating: e.target.value === '' ? null : Number(e.target.value) })}
           placeholder="—"
+          aria-label="Sua nota, de 0 a 10"
           className="w-16 rounded-md border border-[var(--border)] bg-transparent px-2 py-1 text-center text-sm text-[var(--text)] outline-none focus:border-purple"
         />
       </div>

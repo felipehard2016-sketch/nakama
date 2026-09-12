@@ -8,6 +8,7 @@ import {
   syncUnlockedAchievements, getUnlockedAchievementIds,
 } from '../lib/achievements';
 import { useTitle } from '../hooks/useTitle';
+import ErrorState from '../components/ui/ErrorState';
 
 // Cortes/molde reutilizados no badge (identidade HUD).
 const BADGE_CUT = 'polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px)';
@@ -63,7 +64,14 @@ function Badge({ a, justUnlocked }) {
       <p className="relative z-10 text-[11px] leading-snug text-[var(--text-muted)]">{a.desc}</p>
 
       {!a.unlocked && (
-        <div className="relative z-10 flex w-full gap-[2px]">
+        <div
+          className="relative z-10 flex w-full gap-[2px]"
+          role="progressbar"
+          aria-label={`Progresso de "${a.title}"`}
+          aria-valuemin={0}
+          aria-valuemax={a.total}
+          aria-valuenow={a.progress}
+        >
           {segments.map((s, i) => (
             <i
               key={i}
@@ -89,28 +97,43 @@ export default function Achievements() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [achievements, setAchievements] = useState(null);
+  const [error, setError] = useState(false);
   // Ids desbloqueados NESTA carga da página — só eles tocam a animação
   // de unlock; conquistas já antigas ficam com o visual dourado estático.
   const [justUnlockedIds, setJustUnlockedIds] = useState(() => new Set());
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
+    setError(false);
     (async () => {
-      const [{ data: entries }, streak, unlockedIds] = await Promise.all([
-        getUserList(user.id),
-        getStreak(user.id),
-        getUnlockedAchievementIds(user.id),
-      ]);
+      try {
+        const [{ data: entries, error: listError }, streak, unlockedIds] = await Promise.all([
+          getUserList(user.id),
+          getStreak(user.id),
+          getUnlockedAchievementIds(user.id),
+        ]);
+        if (listError) throw listError;
 
-      const checked = checkAllAchievements(entries || [], streak);
-      const newly = await syncUnlockedAchievements(user.id, checked, unlockedIds);
-      newly.forEach(a => showToast(`Conquista desbloqueada: ${a.title} 🎉`, 'success'));
+        const checked = checkAllAchievements(entries || [], streak);
+        const newly = await syncUnlockedAchievements(user.id, checked, unlockedIds);
+        newly.forEach(a => showToast(`Conquista desbloqueada: ${a.title} 🎉`, 'success'));
 
-      setJustUnlockedIds(new Set(newly.map(a => a.id)));
-      setAchievements(checked);
+        if (cancelled) return;
+        setJustUnlockedIds(new Set(newly.map(a => a.id)));
+        setAchievements(checked);
+      } catch {
+        if (!cancelled) setError(true);
+      }
     })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, reloadKey]);
+
+  if (error) {
+    return <ErrorState message="Não deu para carregar suas conquistas agora." onRetry={() => setReloadKey(k => k + 1)} />;
+  }
 
   if (!achievements) {
     return <div className="flex min-h-[40vh] items-center justify-center">

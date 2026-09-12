@@ -6,6 +6,7 @@ import { getUserList, preferredTitle } from '../lib/mediaList';
 import { cleanAniListText } from '../lib/format';
 import { useAuth } from '../context/AuthContext';
 import MediaRow from '../components/ui/MediaRow';
+import ErrorState from '../components/ui/ErrorState';
 import { useTitle } from '../hooks/useTitle';
 
 const GENRE_LABELS = [
@@ -66,23 +67,33 @@ export default function Home() {
   const { user } = useAuth();
 
   const [homeData, setHomeData] = useState(null);
+  const [homeError, setHomeError] = useState(false);
   const [genreRows, setGenreRows] = useState(null);
   const [watching, setWatching] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    setHomeError(false);
     const { season, year } = currentSeason();
+    // HOME_BATCH_QUERY é o conteúdo principal da Home (hero + top 10 +
+    // trending + mangás) — se falhar, mostra erro de verdade em vez de
+    // só deixar a tela vazia pra sempre.
     queryAniList(HOME_BATCH_QUERY, { season, year })
       .then(setHomeData)
-      .catch(() => setHomeData({}));
+      .catch(() => setHomeError(true));
+    // As fileiras por gênero são conteúdo complementar: se falharem,
+    // a Home continua útil sem elas — só não mostra essas fileiras.
     queryAniList(HOME_GENRE_ROWS_QUERY, {})
       .then(setGenreRows)
       .catch(() => setGenreRows({}));
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     if (!user) { setWatching([]); return; }
-    getUserList(user.id).then(({ data }) => {
-      setWatching((data || []).filter(e => e.status === 'watching').slice(0, 15));
+    // "Continuar assistindo" também é complementar — uma falha aqui não
+    // deve derrubar a Home inteira, só deixa de mostrar essa fileira.
+    getUserList(user.id).then(({ data, error }) => {
+      setWatching(error ? [] : (data || []).filter(e => e.status === 'watching').slice(0, 15));
     });
   }, [user]);
 
@@ -97,13 +108,20 @@ export default function Home() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10">
-      <HeroBanner media={hero} />
+      {!homeError && <HeroBanner media={hero} />}
 
       {user && watching?.length > 0 && (
         <MediaRow title="Continuar assistindo" items={watchingAsMedia} />
       )}
 
-      {!homeData && (
+      {homeError && (
+        <ErrorState
+          message="Não deu para carregar os destaques agora — a AniList pode estar fora do ar."
+          onRetry={() => setReloadKey(k => k + 1)}
+        />
+      )}
+
+      {!homeError && !homeData && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="aspect-[2/3] animate-pulse rounded-lg bg-[var(--bg-card)]" />

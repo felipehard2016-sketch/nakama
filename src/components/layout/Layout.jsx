@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation, Link } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import MobileTabBar from './MobileTabBar';
@@ -30,7 +30,16 @@ export default function Layout() {
           </Link>
         </header>
         <main className="min-w-0 flex-1 px-4 py-2 sm:px-6 lg:px-8">
-          <Outlet />
+          {/* Boundary de carregamento das páginas com code-splitting (React.lazy
+              em App.jsx) — fica só aqui, dentro do main, pra sidebar/tab bar
+              nunca sumirem da tela durante uma troca de rota. */}
+          <Suspense fallback={
+            <div className="flex min-h-[50vh] items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple/25 border-t-purple" />
+            </div>
+          }>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <MobileTabBar />

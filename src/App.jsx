@@ -1,3 +1,4 @@
+import { lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -6,19 +7,27 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
-import Search from './pages/Search';
-import AnimeDetail from './pages/AnimeDetail';
-import CharacterDetail from './pages/CharacterDetail';
-import MyList from './pages/MyList';
-import Stats from './pages/Stats';
-import Calendar from './pages/Calendar';
-import Achievements from './pages/Achievements';
-import CharacterCompare from './pages/CharacterCompare';
-import Profile from './pages/Profile';
 import Login from './pages/Login';
-import Wrapped from './pages/Wrapped';
-import Games from './pages/Games';
-import Builds from './pages/Builds';
+
+/*
+ * Code-splitting por rota: só Home e Login (as duas telas mais
+ * prováveis de ser a primeira que alguém vê) entram no bundle inicial.
+ * O resto carrega sob demanda, um chunk por página — o Suspense que
+ * mostra o spinner enquanto isso baixa fica em Layout.jsx, dentro do
+ * <main>, pra sidebar/tab bar nunca sumirem durante a troca de rota.
+ */
+const Search           = lazy(() => import('./pages/Search'));
+const AnimeDetail      = lazy(() => import('./pages/AnimeDetail'));
+const CharacterDetail  = lazy(() => import('./pages/CharacterDetail'));
+const MyList           = lazy(() => import('./pages/MyList'));
+const Stats            = lazy(() => import('./pages/Stats'));
+const Calendar         = lazy(() => import('./pages/Calendar'));
+const Achievements     = lazy(() => import('./pages/Achievements'));
+const CharacterCompare = lazy(() => import('./pages/CharacterCompare'));
+const Profile          = lazy(() => import('./pages/Profile'));
+const Wrapped          = lazy(() => import('./pages/Wrapped'));
+const Games            = lazy(() => import('./pages/Games'));
+const Builds           = lazy(() => import('./pages/Builds'));
 
 export default function App() {
   return (

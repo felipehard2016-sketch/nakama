@@ -4,6 +4,13 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // Config de teste (Vitest lê essa mesma chave direto deste arquivo —
+  // não precisa de vitest.config separado). Só lógica pura por enquanto
+  // (lib/*.js), então nem precisa de ambiente de DOM.
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.js'],
+  },
   plugins: [
     react(),
     tailwindcss(),

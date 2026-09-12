@@ -6,6 +6,7 @@ import { getUserList } from '../lib/mediaList';
 import { computeStats } from '../lib/stats';
 import { levelFromEpisodes } from '../lib/leveling';
 import GenreBars from '../components/ui/GenreBars';
+import ErrorState from '../components/ui/ErrorState';
 import { useTitle } from '../hooks/useTitle';
 
 // Corte diagonal + leitura em mono — mesma identidade HUD do resto do
@@ -35,10 +36,14 @@ export default function Stats() {
   useTitle('Stats');
   const { user, profile, updateProfile } = useAuth();
   const [stats, setStats] = useState(null);
+  const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!user) return;
-    getUserList(user.id).then(({ data }) => {
+    setError(false);
+    getUserList(user.id).then(({ data, error: err }) => {
+      if (err) { setError(true); return; }
       const s = computeStats(data || []);
       setStats(s);
 
@@ -46,7 +51,11 @@ export default function Stats() {
       if (profile && level !== profile.level) updateProfile({ level });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, reloadKey]);
+
+  if (error) {
+    return <ErrorState message="Não deu para carregar suas stats agora." onRetry={() => setReloadKey(k => k + 1)} />;
+  }
 
   if (!stats) {
     return <div className="flex min-h-[40vh] items-center justify-center">
