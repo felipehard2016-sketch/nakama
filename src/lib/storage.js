@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────────────────────
-   storage.js — camada de persistência híbrida
+   storage.js — camada de persistência híbrida (v1)
    • localStorage é sempre a fonte primária (síncrono, rápido)
    • Supabase é secundário (assíncrono, sincronizado em background)
 
@@ -7,6 +7,12 @@
    { id, listStatus, favorited, progress, addedAt, updatedAt,
      title, coverImage, averageScore, episodes,
      chapters, format, genres, seasonYear, duration }
+
+   ⚠️ As chamadas a `.from('user_media_list')` abaixo ainda usam o
+   formato da v1 (dado denormalizado por linha). O schema v2
+   (supabase/schema.sql) redesenhou essa tabela para referenciar
+   `media_items` por FK — este arquivo será reescrito no passo 5
+   (módulo anime/mangá) junto com a integração AniList de verdade.
 ──────────────────────────────────────────────────────────── */
 import { supabase } from './supabase';
 

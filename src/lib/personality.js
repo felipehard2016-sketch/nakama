@@ -1,7 +1,12 @@
 import { supabase } from './supabase';
 
 /* ──────────────────────────────────────────────
-   PERSONALIDADE DO PERSONAGEM (votos da comunidade)
+   PERSONALIDADE DO PERSONAGEM (votos da comunidade) — v1
+
+   ⚠️ Ainda aponta para `character_personality`/`character_catalog`
+   (tabelas da v1). O schema v2 (supabase/schema.sql) tem uma tabela
+   `characters` única com mbti/enneagram/media_id — este arquivo será
+   atualizado junto do comparador de personagens (passo 6).
 ────────────────────────────────────────────── */
 
 /**

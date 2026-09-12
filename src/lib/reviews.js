@@ -1,5 +1,9 @@
 /* ─────────────────────────────────────────────────────────────
-   reviews.js — camada de acesso ao Supabase para reviews
+   reviews.js — camada de acesso ao Supabase para reviews (v1)
+
+   ⚠️ Ainda aponta para `anime_reviews`/`user_profiles` (tabelas da
+   v1). O schema v2 (supabase/schema.sql) usa `reviews`/`profiles` —
+   este arquivo será atualizado junto do módulo anime/mangá (passo 5).
 ──────────────────────────────────────────────────────────── */
 import { supabase } from './supabase';
 

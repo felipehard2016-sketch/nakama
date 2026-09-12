@@ -39,9 +39,9 @@ npm run lint      # ESLint
 
 ## Ordem de construção (roadmap)
 
-1. **Estrutura do projeto** — Vite + React + Tailwind + PWA ✅ (você está aqui)
-2. Layout base responsivo (sidebar fixa desktop, testado em várias resoluções)
-3. Schema completo no Supabase
+1. **Estrutura do projeto** — Vite + React + Tailwind + PWA ✅
+2. **Layout base responsivo** — sidebar fixa desktop/tablet, gaveta mobile ✅
+3. **Schema completo no Supabase** ✅ (você está aqui)
 4. Autenticação (Supabase Auth) e rotas (React Router)
 5. Módulo anime/mangá: AniList, tracking, progresso, notas, favoritos
 6. Calendário, estatísticas, conquistas, streak, Wrapped, comparador de personagens
@@ -49,6 +49,32 @@ npm run lint      # ESLint
 8. Camada de "companion" (arcos/notas de teoria) nos itens de mídia
 9. Calculadora/simulador de builds (PoE 2, Diablo 4, Last Epoch, Warframe, Genshin)
 10. Navegação mobile (tab bar híbrida)
+
+## Banco de dados (Supabase)
+
+O schema completo da v2 está em [`supabase/schema.sql`](supabase/schema.sql) —
+um arquivo único, idempotente (seguro rodar mais de uma vez). Para aplicar:
+
+1. Abra o projeto em https://supabase.com/dashboard → **SQL Editor** → **New query**
+2. Cole o conteúdo de `supabase/schema.sql` inteiro e rode
+
+Tabelas: `profiles`, `media_items` (catálogo compartilhado anime/manga/game),
+`user_media_list`, `achievements`, `user_achievements`, `streaks`,
+`characters`, `reviews`, `arc_notes` (companion) e `game_builds` (fase futura).
+
+> **Nota sobre a v1:** o projeto Supabase é o mesmo da v1
+> (`gelekeybpxjcltjwmpqf.supabase.co`). A tabela `user_media_list` antiga
+> tinha um formato incompatível com a v2 (dado denormalizado, sem catálogo
+> compartilhado) — o script renomeia ela para `user_media_list_legacy_v1`
+> em vez de apagar, então nenhum dado é perdido. As demais tabelas da v1
+> (`character_personality`, `user_profiles`, `episode_progress`,
+> `anime_reviews`, `review_votes`) não conflitam com a v2 e ficam como
+> estão, sem uso pelo código novo, até você decidir remover.
+>
+> `src/lib/storage.js`, `reviews.js` e `personality.js` (mantidos do v1)
+> ainda apontam para as tabelas antigas — serão reescritos para o schema
+> v2 nos passos 5 e 6, quando o módulo anime/mangá e o comparador de
+> personagens entrarem de verdade.
 
 ## Estrutura de pastas
 
