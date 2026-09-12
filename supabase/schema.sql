@@ -123,15 +123,25 @@ CREATE TABLE IF NOT EXISTS public.user_media_list (
   id         BIGSERIAL   PRIMARY KEY,
   user_id    UUID        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   media_id   BIGINT      NOT NULL REFERENCES public.media_items(id) ON DELETE CASCADE,
-  status     TEXT        NOT NULL CHECK (status IN ('watching', 'completed', 'on_hold', 'dropped', 'planned')),
+  status     TEXT        NOT NULL CHECK (status IN ('watching', 'completed', 'on_hold', 'dropped', 'planned', 'platinum')),
   progress   INT         NOT NULL DEFAULT 0,
   rating     NUMERIC(3,1) CHECK (rating BETWEEN 0 AND 10),
   favorite   BOOLEAN     NOT NULL DEFAULT false,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, media_id)
 );
--- status: watching=Assistindo, completed=Completo, on_hold=Em Pausa,
---         dropped=Abandonado, planned=Planejado
+-- status compartilhado entre mídias pra não duplicar coluna por tipo:
+--   anime/manga: watching=Assistindo, completed=Completo, on_hold=Em Pausa,
+--                dropped=Abandonado, planned=Planejado
+--   game (passo 7): watching=Jogando, completed=Completo, dropped=Abandonado,
+--                   planned=Planejado, platinum=Platinado (só usado por jogos)
+
+-- Upgrade in-place: se a constraint já existia sem 'platinum' (rodou uma
+-- versão anterior deste schema), recria com o valor novo. Não faz nada
+-- numa instalação nova (a CREATE TABLE acima já nasce com 'platinum').
+ALTER TABLE public.user_media_list DROP CONSTRAINT IF EXISTS user_media_list_status_check;
+ALTER TABLE public.user_media_list ADD CONSTRAINT user_media_list_status_check
+  CHECK (status IN ('watching', 'completed', 'on_hold', 'dropped', 'planned', 'platinum'));
 
 ALTER TABLE public.user_media_list ENABLE ROW LEVEL SECURITY;
 
@@ -148,15 +158,47 @@ CREATE TRIGGER user_media_list_updated_at
 
 
 -- ────────────────────────────────────────────────────────────────
--- 4. achievements — catálogo das 27 conquistas (dado fixo, sem RLS de escrita)
+-- 4. achievements — catálogo das conquistas (dado fixo, sem RLS de escrita)
+--
+-- id é TEXT (slug, ex.: 'eps_500') em vez de serial: as regras de
+-- desbloqueio vivem em código (src/lib/achievements.js, herdado da v1
+-- quase pronto), então o slug usado lá é a própria chave primária aqui
+-- — sem precisar de tabela de lookup slug→id.
 -- ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.achievements (
-  id          BIGSERIAL PRIMARY KEY,
-  name        TEXT      NOT NULL,
+  id          TEXT  PRIMARY KEY,
+  name        TEXT  NOT NULL,
   description TEXT,
   icon        TEXT,
-  condition   JSONB     NOT NULL DEFAULT '{}'::jsonb  -- regra avaliada pelo código, ex.: {"type":"episodes_watched","threshold":100}
+  points      INT   NOT NULL DEFAULT 0,
+  category    TEXT
 );
+
+-- Upgrade in-place caso este projeto já tivesse rodado uma versão anterior
+-- deste schema com achievements.id BIGSERIAL — converte pra TEXT sem
+-- apagar nada. Não faz nada se a tabela já nasceu com o formato novo.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'achievements'
+      AND column_name = 'id' AND data_type <> 'text'
+  ) THEN
+    ALTER TABLE public.user_achievements DROP CONSTRAINT IF EXISTS user_achievements_achievement_id_fkey;
+    ALTER TABLE public.achievements ALTER COLUMN id DROP DEFAULT;
+    ALTER TABLE public.achievements ALTER COLUMN id TYPE TEXT USING id::text;
+    ALTER TABLE public.user_achievements ALTER COLUMN achievement_id TYPE TEXT USING achievement_id::text;
+    ALTER TABLE public.user_achievements
+      ADD CONSTRAINT user_achievements_achievement_id_fkey
+      FOREIGN KEY (achievement_id) REFERENCES public.achievements(id) ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='achievements' AND column_name='points') THEN
+    ALTER TABLE public.achievements ADD COLUMN points INT NOT NULL DEFAULT 0;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='achievements' AND column_name='category') THEN
+    ALTER TABLE public.achievements ADD COLUMN category TEXT;
+  END IF;
+END $$;
 
 ALTER TABLE public.achievements ENABLE ROW LEVEL SECURITY;
 
@@ -164,7 +206,42 @@ DROP POLICY IF EXISTS "achievements_select_all" ON public.achievements;
 CREATE POLICY "achievements_select_all" ON public.achievements
   FOR SELECT USING (true);
 -- Sem policy de insert/update/delete: o catálogo de 27 badges é populado
--- via seed/SQL Editor pelo dono do projeto, não pelo app.
+-- via seed abaixo, não pelo app.
+
+-- Seed das 27 conquistas (mesmas definições de src/lib/achievements.js —
+-- a regra de desbloqueio roda em código; esta tabela só guarda o catálogo
+-- pra exibir e servir de FK pra user_achievements).
+INSERT INTO public.achievements (id, name, description, icon, points, category) VALUES
+  ('first_add',      'Primeira Adição',   'Adicionou seu primeiro anime ou mangá à lista.',  '🌱', 10,  'Coleção'),
+  ('collector_10',   'Colecionador',      'Tenha 10 títulos na sua lista.',                  '📚', 20,  'Coleção'),
+  ('collector_50',   'Arquivista',        'Tenha 50 títulos na sua lista.',                  '🗃️', 50,  'Coleção'),
+  ('collector_100',  'Bibliotecário',     '100 títulos salvos. Uma biblioteca completa.',    '🏛️', 100, 'Coleção'),
+  ('first_complete', 'Concluidor',        'Completou seu primeiro anime ou mangá.',          '✅', 15,  'Coleção'),
+  ('complete_20',    'Dedicado',          '20 títulos completos.',                           '🎯', 40,  'Coleção'),
+  ('complete_50',    'Veterano',          '50 títulos marcados como completos.',             '🏆', 80,  'Coleção'),
+  ('favorites_5',    'Coração Cheio',     'Favoritou 5 títulos.',                            '❤️', 20,  'Coleção'),
+  ('favorites_25',   'Apaixonado',        'Favoritou 25 títulos.',                           '💖', 50,  'Coleção'),
+  ('eps_100',        'Espectador',        '100 episódios assistidos.',                       '📺', 25,  'Maratona'),
+  ('eps_500',        'Maratonista',       '500 episódios no total.',                         '🔥', 60,  'Maratona'),
+  ('eps_1000',       'Viciado',           '1.000 episódios assistidos.',                     '⚡', 100, 'Maratona'),
+  ('eps_3000',       'Lendário',          '3.000 episódios. Nível lendário.',                '🌟', 200, 'Maratona'),
+  ('chapters_200',   'Leitor',            '200 capítulos de mangá lidos.',                   '📖', 40,  'Maratona'),
+  ('hours_24',       '24 Horas',          'Um dia inteiro de anime assistido.',              '⏰', 30,  'Maratona'),
+  ('hours_240',      'Dez Dias',          '240 horas de anime. São 10 dias inteiros.',       '🕰️', 100, 'Maratona'),
+  ('genres_5',       'Eclético',          'Completou animes de 5 gêneros diferentes.',       '🎭', 30,  'Variedade'),
+  ('genres_10',      'Diversificado',     '10 gêneros diferentes na sua lista.',             '🌈', 60,  'Variedade'),
+  ('has_manga',      'Além do Anime',     'Adicionou um mangá, novel ou webtoon.',           '📗', 20,  'Variedade'),
+  ('has_movie',      'Cinéfilo',          'Assistiu pelo menos um filme de anime.',          '🎬', 15,  'Variedade'),
+  ('manga_10',       'Mangaka Fan',       '10 mangás ou novels na lista.',                   '📚', 40,  'Variedade'),
+  ('high_score',     'Crítico',           'Avaliou pelo menos 10 títulos.',                  '⭐', 25,  'Variedade'),
+  ('all_statuses',   'Explorador',        'Usou todos os 5 status de lista.',                '🗺️', 35,  'Variedade'),
+  ('streak_3',       '3 Dias Seguidos',   'Ativo no app por 3 dias consecutivos.',           '🔥', 20,  'Dedicação'),
+  ('streak_7',       'Semana Perfeita',   '7 dias consecutivos de atividade.',               '🗓️', 50,  'Dedicação'),
+  ('streak_30',      'Mês Dedicado',      '30 dias seguidos de atividade. Impressionante.',  '🏅', 150, 'Dedicação'),
+  ('early_adopter',  'Nakama OG',         'Um dos primeiros usuários do Nakama.',            '🎌', 30,  'Dedicação')
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name, description = EXCLUDED.description,
+  icon = EXCLUDED.icon, points = EXCLUDED.points, category = EXCLUDED.category;
 
 
 -- ────────────────────────────────────────────────────────────────
@@ -172,7 +249,7 @@ CREATE POLICY "achievements_select_all" ON public.achievements
 -- ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.user_achievements (
   user_id        UUID        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  achievement_id BIGINT      NOT NULL REFERENCES public.achievements(id) ON DELETE CASCADE,
+  achievement_id TEXT        NOT NULL REFERENCES public.achievements(id) ON DELETE CASCADE,
   unlocked_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, achievement_id)
 );
@@ -227,16 +304,18 @@ CREATE TRIGGER on_auth_user_created
 -- 7. characters — dataset de personagens com MBTI/eneagrama (~5.159)
 -- ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.characters (
-  id        BIGSERIAL PRIMARY KEY,
-  name      TEXT      NOT NULL,
-  media_id  BIGINT    REFERENCES public.media_items(id) ON DELETE SET NULL,
-  mbti      TEXT,
-  enneagram TEXT,
-  image_url TEXT
-);
+  id           BIGSERIAL PRIMARY KEY,
+  name         TEXT      NOT NULL,
+  media_id     BIGINT    REFERENCES public.media_items(id) ON DELETE SET NULL,
+  mbti         TEXT,
+  enneagram    TEXT,
+  image_url    TEXT,
+  source_title TEXT  -- nome da obra em texto solto (import_characters.js); preenche o card
+);            -- do comparador enquanto media_id (ligação de verdade com media_items) não existe
 -- media_id fica nullable de propósito: o dataset importado do CSV (v1)
 -- só tem o nome do anime como texto solto, sem ligação com media_items.
--- A resolução nome→media_id entra junto do comparador de personagens (passo 6).
+-- A resolução nome→media_id fica pra quando o catálogo tiver mais cobertura.
+ALTER TABLE public.characters ADD COLUMN IF NOT EXISTS source_title TEXT;
 
 ALTER TABLE public.characters ENABLE ROW LEVEL SECURITY;
 

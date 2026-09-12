@@ -3,9 +3,8 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 const SidebarContext = createContext(null);
 
 /**
- * Controla a gaveta (drawer) de navegação mobile. No desktop a sidebar é
- * fixa e não usa este estado; isso serve só para telas pequenas, como
- * solução provisória até a tab bar do passo 10.
+ * Controla o sheet "Mais" da tab bar mobile (passo 10). No desktop a
+ * sidebar é fixa e não usa este estado — só existe para telas pequenas.
  *
  * `toggle`/`close` usam useCallback para manter identidade estável entre
  * renders — Layout depende de `close` num useEffect (fecha ao trocar de

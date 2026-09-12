@@ -212,6 +212,7 @@ export const MEDIA_DETAILS = `
     Media(id: $id) {
       id
       idMal
+      type
       title { romaji english native }
       coverImage { large extraLarge color }
       bannerImage
@@ -323,6 +324,20 @@ export const TOP_MANGA = `
         format
         chapters
         status
+      }
+    }
+  }
+`;
+
+/** Calendário: próximo episódio dos animes indicados (usado com a lista pessoal do usuário). */
+export const CALENDAR_SCHEDULE = `
+  query ($ids: [Int]) {
+    Page(perPage: 50) {
+      media(id_in: $ids, type: ANIME) {
+        id
+        title { romaji english }
+        coverImage { large }
+        nextAiringEpisode { airingAt episode }
       }
     }
   }

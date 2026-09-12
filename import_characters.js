@@ -1,11 +1,14 @@
 /**
- * NAKAMA — Importador de personagens para o Supabase
+ * NAKAMA — Importador de personagens para o Supabase (schema v2)
  *
  * Pré-requisitos:
- *   1. Execute o SQL de character_catalog.sql no Supabase SQL Editor
+ *   1. Rode supabase/schema.sql inteiro no Supabase SQL Editor (cria `characters`)
  *   2. node import_characters.js
  *
  * O script lê o CSV, converte para linhas limpas e insere em lotes de 200.
+ * Roda mais de uma vez duplica os personagens (é INSERT puro — a tabela
+ * não tem uma chave natural pra dar upsert; se for reimportar, apague as
+ * linhas antigas antes: DELETE FROM characters;).
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -51,7 +54,6 @@ for (let i = 1; i < lines.length; i++) {        // pula header (linha 0)
 
   // parts[0] = índice numérico
   const anime_name     = parts[1]?.trim();
-  const genre          = parts[2]?.trim();
   const character_name = parts[3]?.trim();
   const mbti_raw       = parts[4]?.trim();
   const enn_raw        = parts[5]?.trim();
@@ -62,7 +64,7 @@ for (let i = 1; i < lines.length; i++) {        // pula header (linha 0)
   const mbti      = mbti_raw && mbti_raw !== 'XwX' ? mbti_raw : null;
   const enneagram = enn_raw  && enn_raw  !== 'XwX' ? enn_raw  : null;
 
-  rows.push({ anime_name, character_name, mbti, enneagram, genre });
+  rows.push({ name: character_name, source_title: anime_name, mbti, enneagram });
 }
 
 console.log(`\n📂  CSV lido: ${rows.length} personagens encontrados`);
@@ -76,8 +78,8 @@ for (let start = 0; start < rows.length; start += BATCH) {
   const batch = rows.slice(start, start + BATCH);
 
   const { error } = await supabase
-    .from('character_catalog')
-    .upsert(batch, { onConflict: 'id', ignoreDuplicates: false });
+    .from('characters')
+    .insert(batch);
 
   if (error) {
     console.error(`❌  Lote ${start}–${start + batch.length}: ${error.message}`);
