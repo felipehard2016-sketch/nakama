@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { STATUS_LABELS, STATUS_ORDER, upsertListEntry, removeListEntry } from '../../lib/mediaList';
 import { recordActivity } from '../../lib/streaks';
+import EpisodeGrid from './EpisodeGrid';
 
 /**
  * Painel de tracking (status/progresso/nota/favorito) de um item de mídia.
@@ -112,6 +113,13 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry }
           </button>
         </div>
       </div>
+
+      <EpisodeGrid
+        total={maxProgress}
+        progress={progress}
+        disabled={saving}
+        onSelect={ep => save({ progress: clampProgress(ep) })}
+      />
 
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs text-[var(--text-muted)]">Nota</span>
