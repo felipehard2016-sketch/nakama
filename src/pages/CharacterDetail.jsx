@@ -64,17 +64,24 @@ export default function CharacterDetail() {
     return () => { cancelled = true; };
   }, [id]);
 
-  // Extrai a cor dominante do retrato — dá uma identidade visual própria
-  // pra cada personagem em vez do roxo genérico de sempre. Se falhar
-  // (CORS, imagem ausente, etc.), fica no roxo padrão da marca.
+  // Cor de destaque própria por personagem, em vez do roxo genérico de
+  // sempre. Prioridade: a cor que a própria AniList já calcula pra capa
+  // do anime mais popular dele (dado confiável, sem depender do
+  // navegador conseguir ler pixel da imagem) — e só tenta extrair da
+  // própria foto do personagem via canvas se isso não existir. Extração
+  // por canvas pode falhar silenciosamente se o CDN de imagens não
+  // liberar leitura entre origens; nesse caso cai no roxo padrão.
   useEffect(() => {
-    if (!character?.image?.large) return;
+    if (!character) return;
+    const mediaColor = character.media?.edges?.[0]?.node?.coverImage?.color;
+    if (mediaColor) { setAccent(mediaColor); return; }
+    if (!character.image?.large) return;
     let cancelled = false;
     extractDominantColor(character.image.large).then(color => {
       if (!cancelled && color) setAccent(color);
     });
     return () => { cancelled = true; };
-  }, [character?.image?.large]);
+  }, [character]);
 
   if (loading) {
     return <div className="flex min-h-[50vh] items-center justify-center">
@@ -99,6 +106,14 @@ export default function CharacterDetail() {
   const isProtagonist = topAppearance?.characterRole === 'MAIN';
   const heroBanner = topAppearance?.node?.bannerImage;
 
+  // Varia a composição por personagem (não só a cor): metade espelha o
+  // retrato pro outro lado e inverte o corte diagonal dos destaques —
+  // dado real (o próprio id), não aleatório a cada carregamento.
+  const mirrored = character.id % 2 === 1;
+  const highlightClip = mirrored
+    ? '[clip-path:polygon(0_0,100%_0,96%_100%,0_100%)]'
+    : '[clip-path:polygon(0_0,100%_0,100%_100%,4%_100%)]';
+
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8" style={{ '--char-accent': accent }}>
       {/* ── Herói: banner cinematográfico do anime mais popular dele, cor de destaque própria ── */}
@@ -112,7 +127,7 @@ export default function CharacterDetail() {
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-black/60 to-[var(--char-accent)]/25" />
         </div>
 
-        <div className="relative flex flex-col items-center gap-5 px-6 pb-7 pt-12 sm:flex-row sm:items-end sm:px-10">
+        <div className={`relative flex flex-col items-center gap-5 px-6 pb-7 pt-12 sm:items-end sm:px-10 ${mirrored ? 'sm:flex-row-reverse' : 'sm:flex-row'}`}>
           {character.image?.large && (
             <img
               src={character.image.large}
@@ -165,10 +180,10 @@ export default function CharacterDetail() {
             return (
               <div
                 key={s.label}
-                className="relative overflow-hidden bg-[var(--bg-card)] p-4 [clip-path:polygon(0_0,100%_0,100%_100%,4%_100%)]"
+                className={`relative overflow-hidden bg-[var(--bg-card)] p-4 ${highlightClip}`}
                 style={{
-                  borderLeft: `4px solid ${accent}`,
-                  background: `linear-gradient(135deg, ${accent}25, var(--bg-card) 60%)`,
+                  [mirrored ? 'borderRight' : 'borderLeft']: `4px solid ${accent}`,
+                  background: `linear-gradient(${mirrored ? '225deg' : '135deg'}, ${accent}25, var(--bg-card) 60%)`,
                   animation: 'fadeIn .4s ease both',
                   animationDelay: `${i * 90}ms`,
                 }}

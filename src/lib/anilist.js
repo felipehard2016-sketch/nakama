@@ -461,7 +461,7 @@ export const CHARACTER_DETAILS = `
           node {
             id
             title { romaji english }
-            coverImage { large }
+            coverImage { large color }
             bannerImage
             type
             format
