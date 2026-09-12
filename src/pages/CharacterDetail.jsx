@@ -4,6 +4,7 @@ import { Heart, Cake, Droplet } from 'lucide-react';
 import { queryAniList, CHARACTER_DETAILS } from '../lib/anilist';
 import { preferredTitle } from '../lib/mediaList';
 import { parseCharacterBio } from '../lib/format';
+import { iconForStatLabel } from '../lib/characterIcons';
 import Formatted from '../components/ui/Formatted';
 import LazyImg from '../components/ui/LazyImg';
 import { useTitle } from '../hooks/useTitle';
@@ -93,12 +94,20 @@ export default function CharacterDetail() {
 
       {stats.length > 0 && (
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-5 sm:grid-cols-3">
-          {stats.map(s => (
-            <div key={s.label}>
-              <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{s.label}</dt>
-              <dd className="mt-0.5 text-xs text-[var(--text)]"><Formatted text={s.value} /></dd>
-            </div>
-          ))}
+          {stats.map(s => {
+            const Icon = iconForStatLabel(s.label);
+            return (
+              <div key={s.label} className="flex items-start gap-2.5">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-purple/15 text-purple-light">
+                  {Icon ? <Icon size={14} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+                </div>
+                <div>
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{s.label}</dt>
+                  <dd className="mt-0.5 text-xs text-[var(--text)]"><Formatted text={s.value} /></dd>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
