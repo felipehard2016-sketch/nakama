@@ -113,6 +113,7 @@ export const HOME_BATCH_QUERY = `
         seasonYear
         format
         description(asHtml: false)
+        nextAiringEpisode { airingAt episode }
       }
     }
     seasonal: Page(page: 1, perPage: 20) {
@@ -138,6 +139,7 @@ export const HOME_BATCH_QUERY = `
         format
         episodes
         status
+        nextAiringEpisode { airingAt episode }
       }
     }
     topManga: Page(page: 1, perPage: 10) {
@@ -162,6 +164,8 @@ const GENRE_ROW_FIELDS = `
   averageScore
   format
   episodes
+  status
+  nextAiringEpisode { airingAt episode }
 `;
 export const HOME_GENRE_ROWS_QUERY = `
   query HomeGenreRows {
@@ -234,6 +238,7 @@ export const SEARCH_MEDIA = `
         season
         seasonYear
         description(asHtml: false)
+        nextAiringEpisode { airingAt episode }
       }
     }
   }
@@ -283,6 +288,8 @@ export const MEDIA_DETAILS = `
             episodes
             chapters
             seasonYear
+            status
+            nextAiringEpisode { airingAt episode }
           }
         }
       }
