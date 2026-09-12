@@ -1,16 +1,71 @@
-# React + Vite
+# Nakama v2
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Plataforma pessoal de tracking de animes, mangás e (fase futura) jogos —
+inspirada em MyAnimeList, AniList e TV Time.
 
-Currently, two official plugins are available:
+Esta é a reconstrução (v2) do projeto: a v1 tinha funcionalidades validadas,
+mas problemas estruturais de layout/responsividade que não deram para
+corrigir incrementalmente. O código da v1 continua disponível no histórico
+do Git (branch `main`) para referência ao recriar cada funcionalidade.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- **Frontend:** React + Vite
+- **Estilização:** Tailwind CSS v4 (via `@tailwindcss/vite`)
+- **Backend/DB/Auth:** Supabase
+- **Dados de anime/mangá:** AniList GraphQL API
+- **Hospedagem:** Vercel (deploy automático a cada push)
+- **PWA:** vite-plugin-pwa, configurado desde o início
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Identidade visual
 
-## Expanding the ESLint configuration
+- Dark mode cinematográfico, estética "game UI"
+- Cores de marca: roxo `#7c3aed` e azul `#2563eb` (tokens Tailwind `purple` / `blue`)
+- Logo: chapéu de palha estilizado
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Rodando localmente
+
+```bash
+npm install
+cp .env.example .env   # preencher com as chaves do Supabase
+npm run dev
+```
+
+```bash
+npm run build     # build de produção
+npm run preview   # servir o build localmente
+npm run lint      # ESLint
+```
+
+## Ordem de construção (roadmap)
+
+1. **Estrutura do projeto** — Vite + React + Tailwind + PWA ✅ (você está aqui)
+2. Layout base responsivo (sidebar fixa desktop, testado em várias resoluções)
+3. Schema completo no Supabase
+4. Autenticação (Supabase Auth) e rotas (React Router)
+5. Módulo anime/mangá: AniList, tracking, progresso, notas, favoritos
+6. Calendário, estatísticas, conquistas, streak, Wrapped, comparador de personagens
+7. Módulo de jogos + dashboard cruzado
+8. Camada de "companion" (arcos/notas de teoria) nos itens de mídia
+9. Calculadora/simulador de builds (PoE 2, Diablo 4, Last Epoch, Warframe, Genshin)
+10. Navegação mobile (tab bar híbrida)
+
+## Estrutura de pastas
+
+```
+src/
+  components/    # componentes reutilizáveis (ErrorBoundary, LazyImg, ...)
+  context/       # React context (Auth, Toast, ...)
+  hooks/         # hooks utilitários (useTheme, useTitle)
+  lib/           # integrações (AniList, Supabase, achievements, ...)
+  pages/         # páginas/rotas (a partir do passo 2)
+  App.jsx
+  main.jsx
+  index.css      # Tailwind + tokens de marca + tema claro/escuro
+```
+
+## Ambiente existente (reaproveitado)
+
+- Repositório: github.com/felipehard2016-sketch/nakama
+- Projeto Supabase: gelekeybpxjcltjwmpqf.supabase.co
+- Site publicado: nakama-roan.vercel.app
