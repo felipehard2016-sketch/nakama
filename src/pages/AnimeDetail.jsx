@@ -123,7 +123,14 @@ export default function AnimeDetail() {
         </div>
 
         <div className="w-full shrink-0 md:w-64">
-          {mediaItemId && <TrackingPanel mediaItemId={mediaItemId} maxProgress={maxProgress} initialEntry={entry} />}
+          {mediaItemId && (
+            <TrackingPanel
+              mediaItemId={mediaItemId}
+              maxProgress={maxProgress}
+              initialEntry={entry}
+              episodesInfo={media.streamingEpisodes}
+            />
+          )}
         </div>
       </div>
 
