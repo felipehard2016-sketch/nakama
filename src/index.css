@@ -109,3 +109,31 @@
   0% { background-position: -400px 0; }
   100% { background-position: 400px 0; }
 }
+
+/* ── Microanimações da identidade HUD (barra segmentada + unlock de
+   conquista) — cada uma só roda em hover ou no momento de um evento
+   real, nunca em loop constante pela tela inteira. ── */
+@keyframes hud-cap-pulse {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.4) drop-shadow(0 0 6px rgba(167, 139, 250, 0.85)); }
+}
+@keyframes hud-burst {
+  0%   { opacity: 0.9; transform: scale(0.2); }
+  100% { opacity: 0;   transform: scale(1.5); }
+}
+@keyframes hud-pop {
+  0%   { scale: 1; }
+  30%  { scale: 1.16; filter: drop-shadow(0 0 16px var(--color-purple-light)); }
+  100% { scale: 1; filter: none; }
+}
+.hud-cap-pulse { animation: hud-cap-pulse 1.8s ease-in-out infinite; }
+/* forwards: sem isso, o navegador volta o elemento pro estado anterior à
+   animação ao terminar — no caso do burst, isso significava reaparecer
+   em opacidade 1 (em vez de sumir de vez), deixando uma mancha dourada
+   permanente sobre o card. */
+.hud-unlocking .hud-burst { animation: hud-burst 1.1s ease-out forwards; }
+.hud-unlocking .hud-pop   { animation: hud-pop 1.1s ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-cap-pulse, .hud-unlocking .hud-burst, .hud-unlocking .hud-pop { animation: none !important; }
+}

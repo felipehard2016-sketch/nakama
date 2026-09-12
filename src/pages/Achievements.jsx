@@ -9,21 +9,77 @@ import {
 } from '../lib/achievements';
 import { useTitle } from '../hooks/useTitle';
 
-function Badge({ a }) {
-  const pct = Math.round((a.progress / a.total) * 100);
+// Cortes/molde reutilizados no badge (identidade HUD).
+const BADGE_CUT = 'polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px)';
+const ICON_CUT  = 'polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px)';
+const SEG_CUT   = 'polygon(2px 0, 100% 0, calc(100% - 2px) 100%, 0 100%)';
+const SEGMENTS  = 10;
+
+// Segmentos visuais de progresso até o desbloqueio (mesma linguagem da
+// barra de episódios do TrackingPanel) — só aparece pra quem ainda não
+// desbloqueou.
+function progressSegments(progress, total) {
+  const filled = Math.round(Math.min(progress / total, 1) * SEGMENTS);
+  return Array.from({ length: SEGMENTS }, (_, i) => i < filled ? 'on' : 'off');
+}
+
+/**
+ * Badge de conquista com acento dourado (reservado só pra este
+ * componente — sinaliza "raridade/evento", nunca usado como cor de
+ * interface padrão). `justUnlocked` liga a animação de unlock (~1.1s,
+ * roda uma única vez, só para quem acabou de desbloquear nesta sessão).
+ */
+function Badge({ a, justUnlocked }) {
+  const segments = !a.unlocked ? progressSegments(a.progress, a.total) : [];
+
   return (
-    <div className={`flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors ${
-      a.unlocked ? 'border-purple/40 bg-purple/10' : 'border-[var(--border)] bg-[var(--bg-card)] opacity-60'
-    }`}>
-      <span className="text-3xl">{a.icon}</span>
-      <p className="text-sm font-semibold text-[var(--text)]">{a.title}</p>
-      <p className="text-[11px] leading-snug text-[var(--text-muted)]">{a.desc}</p>
+    <div
+      className={`relative flex flex-col items-center gap-2 overflow-hidden p-4 text-center ${justUnlocked ? 'hud-unlocking' : ''} ${
+        a.unlocked
+          ? 'border border-[rgba(251,191,36,0.35)] bg-gradient-to-br from-[rgba(251,191,36,0.1)] to-[var(--bg-card)]'
+          : 'border border-[var(--border)] bg-[var(--bg-card)] opacity-60'
+      }`}
+      style={{ clipPath: BADGE_CUT }}
+    >
+      {justUnlocked && (
+        <span
+          className="hud-burst pointer-events-none absolute inset-[-40%] z-0"
+          style={{ background: 'radial-gradient(circle, rgba(251,191,36,0.55) 0%, transparent 60%)' }}
+        />
+      )}
+
+      <div
+        className={`relative z-10 flex h-12 w-12 items-center justify-center text-2xl ${justUnlocked ? 'hud-pop' : ''}`}
+        style={{
+          clipPath: ICON_CUT,
+          background: a.unlocked ? 'rgba(251,191,36,0.14)' : 'rgba(255,255,255,0.05)',
+          border: a.unlocked ? '1px solid rgba(251,191,36,0.6)' : '1px solid var(--border)',
+        }}
+      >
+        {a.icon}
+      </div>
+
+      <p className="relative z-10 text-sm font-semibold text-[var(--text)]">{a.title}</p>
+      <p className="relative z-10 text-[11px] leading-snug text-[var(--text-muted)]">{a.desc}</p>
+
       {!a.unlocked && (
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
-          <div className="h-full rounded-full bg-purple/60" style={{ width: `${pct}%` }} />
+        <div className="relative z-10 flex w-full gap-[2px]">
+          {segments.map((s, i) => (
+            <i
+              key={i}
+              style={{ clipPath: SEG_CUT }}
+              className={`h-1.5 flex-1 ${s === 'on' ? 'bg-gradient-to-r from-purple-light to-blue' : 'bg-white/5'}`}
+            />
+          ))}
         </div>
       )}
-      <span className="text-[10px] font-medium text-purple-light">{a.points} pts</span>
+
+      <span
+        className="relative z-10 font-mono text-[10px] font-bold"
+        style={{ color: a.unlocked ? '#fbbf24' : 'var(--color-purple-light)' }}
+      >
+        +{a.points} PTS
+      </span>
     </div>
   );
 }
@@ -33,6 +89,9 @@ export default function Achievements() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [achievements, setAchievements] = useState(null);
+  // Ids desbloqueados NESTA carga da página — só eles tocam a animação
+  // de unlock; conquistas já antigas ficam com o visual dourado estático.
+  const [justUnlockedIds, setJustUnlockedIds] = useState(() => new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -47,6 +106,7 @@ export default function Achievements() {
       const newly = await syncUnlockedAchievements(user.id, checked, unlockedIds);
       newly.forEach(a => showToast(`Conquista desbloqueada: ${a.title} 🎉`, 'success'));
 
+      setJustUnlockedIds(new Set(newly.map(a => a.id)));
       setAchievements(checked);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,7 +133,9 @@ export default function Achievements() {
         <section key={cat}>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">{cat}</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {achievements.filter(a => a.category === cat).map(a => <Badge key={a.id} a={a} />)}
+            {achievements.filter(a => a.category === cat).map(a => (
+              <Badge key={a.id} a={a} justUnlocked={justUnlockedIds.has(a.id)} />
+            ))}
           </div>
         </section>
       ))}

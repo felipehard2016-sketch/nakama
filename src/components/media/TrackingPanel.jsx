@@ -7,6 +7,27 @@ import { STATUS_LABELS, STATUS_ORDER, upsertListEntry, removeListEntry } from '.
 import { recordActivity } from '../../lib/streaks';
 import EpisodeGrid from './EpisodeGrid';
 
+// Cortes diagonais reutilizados nos controles de progresso (identidade HUD).
+const STEP_CUT = 'polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)';
+const TAG_CUT  = 'polygon(5px 0, 100% 0, 100% 100%, 0 100%, 0 5px)';
+const SEG_CUT  = 'polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%)';
+const SEGMENT_COUNT = 14;
+
+// Divide o progresso em SEGMENT_COUNT blocos visuais (não é 1 bloco por
+// episódio — um mangá com 900+ capítulos ficaria ilegível) e marca o
+// último bloco preenchido como "cap" (aceso/pulsando), representando a
+// posição atual — leitura tipo barra de vida de RPG.
+function buildSegments(progress, maxProgress) {
+  if (!maxProgress) return [];
+  const pct = Math.min(Math.max(progress, 0) / maxProgress, 1);
+  const filled = Math.round(pct * SEGMENT_COUNT);
+  return Array.from({ length: SEGMENT_COUNT }, (_, i) => {
+    if (i < filled - 1) return 'on';
+    if (i === filled - 1) return 'cap';
+    return 'off';
+  });
+}
+
 /**
  * Painel de tracking (status/progresso/nota/favorito) de um item de mídia.
  * `mediaItemId` é o id em public.media_items (já garantido no catálogo
@@ -59,6 +80,7 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, 
 
   const progress = entry?.progress ?? 0;
   const clampProgress = (n) => Math.max(0, maxProgress ? Math.min(n, maxProgress) : n);
+  const segments = buildSegments(progress, maxProgress);
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-5">
@@ -91,27 +113,50 @@ export default function TrackingPanel({ mediaItemId, maxProgress, initialEntry, 
         ))}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-[var(--text-muted)]">Progresso</span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => save({ progress: clampProgress(progress - 1) })}
-            disabled={saving || progress <= 0}
-            className="h-7 w-7 rounded-md bg-white/5 text-sm text-[var(--text)] disabled:opacity-30"
-          >
-            −
-          </button>
-          <span className="w-16 text-center text-sm text-[var(--text)]">
-            {progress}{maxProgress ? ` / ${maxProgress}` : ''}
-          </span>
-          <button
-            onClick={() => save({ progress: clampProgress(progress + 1) })}
-            disabled={saving || (maxProgress && progress >= maxProgress)}
-            className="h-7 w-7 rounded-md bg-white/5 text-sm text-[var(--text)] disabled:opacity-30"
-          >
-            +
-          </button>
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Progresso</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => save({ progress: clampProgress(progress - 1) })}
+              disabled={saving || progress <= 0}
+              style={{ clipPath: STEP_CUT }}
+              className="flex h-7 w-7 items-center justify-center border border-[var(--border)] bg-[var(--bg-card)] text-sm text-purple-light transition-[filter] hover:[filter:drop-shadow(0_0_8px_var(--purple-glow))] disabled:opacity-30 disabled:hover:filter-none"
+            >
+              −
+            </button>
+            <span
+              style={{ clipPath: TAG_CUT }}
+              className="min-w-[64px] border border-[var(--border)] bg-[var(--bg-card)] px-2 py-1 text-center font-mono text-[12px] font-bold text-[var(--text)]"
+            >
+              {progress}{maxProgress ? ` / ${maxProgress}` : ''}
+            </span>
+            <button
+              onClick={() => save({ progress: clampProgress(progress + 1) })}
+              disabled={saving || (maxProgress && progress >= maxProgress)}
+              style={{ clipPath: STEP_CUT }}
+              className="flex h-7 w-7 items-center justify-center border border-[var(--border)] bg-[var(--bg-card)] text-sm text-purple-light transition-[filter] hover:[filter:drop-shadow(0_0_8px_var(--purple-glow))] disabled:opacity-30 disabled:hover:filter-none"
+            >
+              +
+            </button>
+          </div>
         </div>
+
+        {!!maxProgress && (
+          <div className="flex gap-[3px]">
+            {segments.map((state, i) => (
+              <i
+                key={i}
+                style={{ clipPath: SEG_CUT }}
+                className={`h-3.5 flex-1 ${
+                  state === 'cap' ? 'hud-cap-pulse bg-gradient-to-b from-white to-blue-light'
+                  : state === 'on' ? 'bg-gradient-to-b from-purple-light to-blue'
+                  : 'bg-white/[0.06]'
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <EpisodeGrid
