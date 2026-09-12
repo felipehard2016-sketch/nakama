@@ -8,8 +8,9 @@ import TrackingPanel from '../components/media/TrackingPanel';
 import ArcNotes from '../components/media/ArcNotes';
 import LazyImg from '../components/ui/LazyImg';
 import MediaCard from '../components/ui/MediaCard';
+import Formatted from '../components/ui/Formatted';
 import { useTitle } from '../hooks/useTitle';
-import { stripHtml } from '../lib/format';
+import { cleanAniListText } from '../lib/format';
 
 export default function AnimeDetail() {
   const { id } = useParams();
@@ -109,7 +110,7 @@ export default function AnimeDetail() {
           </div>
 
           <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
-            {stripHtml(media.description)}
+            <Formatted text={cleanAniListText(media.description)} />
           </p>
 
           {media.studios?.nodes?.length > 0 && (

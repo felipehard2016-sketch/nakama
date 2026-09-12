@@ -3,11 +3,21 @@ import { useParams, Link } from 'react-router-dom';
 import { Heart, Cake, Droplet } from 'lucide-react';
 import { queryAniList, CHARACTER_DETAILS } from '../lib/anilist';
 import { preferredTitle } from '../lib/mediaList';
-import { stripHtml } from '../lib/format';
+import { parseCharacterBio } from '../lib/format';
+import Formatted from '../components/ui/Formatted';
 import LazyImg from '../components/ui/LazyImg';
 import { useTitle } from '../hooks/useTitle';
 
 const ROLE_LABELS = { MAIN: 'Principal', SUPPORTING: 'Coadjuvante', BACKGROUND: 'Participação' };
+const GENDER_LABELS = { Male: 'Masculino', Female: 'Feminino', 'Non-binary': 'Não-binário' };
+
+function StatChip({ icon: Icon, children }) {
+  return (
+    <span className="flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1 text-xs text-[var(--text-secondary)]">
+      {Icon && <Icon size={12} />} {children}
+    </span>
+  );
+}
 
 export default function CharacterDetail() {
   const { id } = useParams();
@@ -43,44 +53,64 @@ export default function CharacterDetail() {
     ? `${String(birth.day).padStart(2, '0')}/${String(birth.month).padStart(2, '0')}`
     : null;
 
+  const { stats, paragraphs } = parseCharacterBio(character.description);
+
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <div className="flex flex-col gap-6 sm:flex-row">
-        <img
-          src={character.image?.large}
-          alt={character.name?.full}
-          className="mx-auto h-64 w-48 shrink-0 rounded-lg object-cover shadow-lg sm:mx-0"
-        />
+    <div className="mx-auto flex max-w-4xl flex-col gap-8">
+      {/* Faixa com glow de marca atrás do cabeçalho — mesma linguagem visual do resto do app */}
+      <div className="relative overflow-hidden rounded-2xl border border-purple/20 bg-gradient-to-br from-purple/15 via-[var(--bg-card)] to-blue/10 p-6">
+        <div className="flex flex-col gap-5 sm:flex-row">
+          <img
+            src={character.image?.large}
+            alt={character.name?.full}
+            className="mx-auto h-56 w-40 shrink-0 rounded-xl object-cover shadow-[0_8px_32px_rgba(124,58,237,0.35)] sm:mx-0"
+          />
 
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-[var(--text)]">{character.name?.full}</h1>
-          {character.name?.native && <p className="text-sm text-[var(--text-muted)]">{character.name.native}</p>}
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-[var(--text)]">{character.name?.full}</h1>
+            {character.name?.native && <p className="text-sm text-[var(--text-muted)]">{character.name.native}</p>}
 
-          {character.name?.alternative?.filter(Boolean).length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {character.name.alternative.filter(Boolean).map(alt => (
-                <span key={alt} className="rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] text-[var(--text-secondary)]">{alt}</span>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
-            {character.favourites != null && (
-              <span className="flex items-center gap-1"><Heart size={13} className="fill-pink-400 text-pink-400" /> {character.favourites.toLocaleString('pt-BR')}</span>
+            {character.name?.alternative?.filter(Boolean).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {character.name.alternative.filter(Boolean).map(alt => (
+                  <span key={alt} className="rounded-full bg-purple/15 px-2.5 py-0.5 text-[11px] text-purple-light">{alt}</span>
+                ))}
+              </div>
             )}
-            {character.age && <span>Idade: {character.age}</span>}
-            {birthLabel && <span className="flex items-center gap-1"><Cake size={13} /> {birthLabel}</span>}
-            {character.bloodType && <span className="flex items-center gap-1"><Droplet size={13} /> Tipo {character.bloodType}</span>}
-            {character.gender && <span className="rounded bg-white/5 px-2 py-0.5">{character.gender}</span>}
-          </div>
 
-          {character.description && (
-            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
-              {stripHtml(character.description)}
-            </p>
-          )}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {character.favourites != null && (
+                <StatChip icon={Heart}>{character.favourites.toLocaleString('pt-BR')} favoritos</StatChip>
+              )}
+              {character.age && <StatChip>Idade: {character.age}</StatChip>}
+              {birthLabel && <StatChip icon={Cake}>{birthLabel}</StatChip>}
+              {character.bloodType && <StatChip icon={Droplet}>Tipo {character.bloodType}</StatChip>}
+              {character.gender && <StatChip>{GENDER_LABELS[character.gender] || character.gender}</StatChip>}
+            </div>
+          </div>
         </div>
       </div>
+
+      {stats.length > 0 && (
+        <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-5 sm:grid-cols-3">
+          {stats.map(s => (
+            <div key={s.label}>
+              <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{s.label}</dt>
+              <dd className="mt-0.5 text-xs text-[var(--text)]"><Formatted text={s.value} /></dd>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {paragraphs.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {paragraphs.map((p, i) => (
+            <p key={i} className="whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
+              <Formatted text={p} />
+            </p>
+          ))}
+        </div>
+      )}
 
       {character.media?.edges?.length > 0 && (
         <section>
