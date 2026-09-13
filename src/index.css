@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&family=Caveat:wght@600;700&family=Kalam:wght@400;700&display=swap');
 @import "tailwindcss";
 
 /* ── Tokens de marca (geram utilitários Tailwind: bg-purple, text-blue, etc.) ── */
@@ -12,6 +12,10 @@
   /* Fonte de "leitura HUD" — só para números/status (nível, episódio,
      nota), nunca para corpo de texto. Ver identidade visual aprovada. */
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+  /* Fontes "manuscritas" só do Diário de Personagens (ver Diario.jsx) —
+     não usadas em mais nenhum lugar do app. */
+  --font-hand:       'Kalam', cursive;
+  --font-hand-title: 'Caveat', cursive;
 }
 
 /*
@@ -136,4 +140,56 @@
 
 @media (prefers-reduced-motion: reduce) {
   .hud-cap-pulse, .hud-unlocking .hud-burst, .hud-unlocking .hud-pop { animation: none !important; }
+  .diary-page-enter { animation: none !important; }
 }
+
+/* ── Diário de Personagens ──────────────────────────────────────────
+ * Estética de caderno físico (papel, mancha, fita, polaroide),
+ * deliberadamente FORA da paleta HUD do resto do app — é o ponto: tem
+ * que parecer um objeto real folheável, não mais uma tela de sistema.
+ * Por isso cores/fontes aqui são fixas, não seguem --bg/--text nem o
+ * toggle claro/escuro (ver Diario.jsx, único consumidor destas classes).
+ * ──────────────────────────────────────────────────────────────── */
+.diary-paper {
+  background-color: #f1e6cf;
+  background-image:
+    radial-gradient(ellipse at top left, rgba(255, 255, 255, 0.5), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.29 0 0 0 0 0.23 0 0 0 0 0.18 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  color: #3b2f28;
+}
+
+.diary-stain {
+  position: absolute;
+  border-radius: 44% 56% 60% 40% / 50% 45% 55% 50%;
+  background: radial-gradient(circle, rgba(120, 72, 32, 0.28), rgba(120, 72, 32, 0) 70%);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+.diary-tape {
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.75), rgba(255, 250, 225, 0.55));
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.diary-polaroid {
+  background: #fdfaf3;
+  padding: 10px 10px 30px;
+  box-shadow: 0 10px 24px rgba(40, 25, 10, 0.35);
+  transition: transform 0.2s ease;
+}
+.diary-polaroid:hover { transform: rotate(0deg) !important; }
+
+.diary-lines {
+  background-image: repeating-linear-gradient(to bottom, transparent, transparent 26px, rgba(80, 58, 40, 0.16) 27px);
+}
+
+.diary-sticker {
+  background: #fffdf6;
+  box-shadow: 0 3px 8px rgba(40, 25, 10, 0.25);
+}
+
+@keyframes diary-page-turn {
+  from { opacity: 0; transform: perspective(1000px) rotateY(-6deg) translateX(2%) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.diary-page-enter { animation: diary-page-turn 380ms ease-out both; }

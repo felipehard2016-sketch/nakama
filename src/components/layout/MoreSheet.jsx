@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { BarChart2, Calendar, Scale, Trophy, Sparkles, Gamepad2, Swords, X } from 'lucide-react';
+import { BarChart2, Calendar, Scale, Trophy, Sparkles, Gamepad2, Swords, BookOpen, X } from 'lucide-react';
 import { useSidebar } from '../../context/SidebarContext';
 
 const MORE_ITEMS = [
   { to: '/stats',      icon: BarChart2, label: 'Stats' },
   { to: '/calendario', icon: Calendar,  label: 'Calendário' },
   { to: '/comparador', icon: Scale,     label: 'Comparador' },
+  { to: '/diario',     icon: BookOpen,  label: 'Diário' },
   { to: '/conquistas', icon: Trophy,    label: 'Conquistas' },
   { to: '/wrapped',    icon: Sparkles,  label: 'Wrapped' },
   { to: '/jogos',      icon: Gamepad2,  label: 'Jogos' },

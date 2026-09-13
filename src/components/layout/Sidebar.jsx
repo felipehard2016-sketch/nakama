@@ -1,13 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Search, List, BarChart2, Calendar, Trophy, Scale, User } from 'lucide-react';
+import { Home, Search, List, BarChart2, Calendar, Trophy, Scale, BookOpen, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { labelForLevel } from '../../lib/leveling';
 import NotificationBell from '../ui/NotificationBell';
 
 /*
- * Sidebar fixa de desktop/tablet (a partir de md, 768px) com os 8 itens
- * definidos no briefing. Mobile usa a tab bar inferior (MobileTabBar +
- * MoreSheet, passo 10) em vez desta sidebar.
+ * Sidebar fixa de desktop/tablet (a partir de md, 768px) com os itens
+ * definidos no briefing (mais o Diário, adicionado depois). Mobile usa a
+ * tab bar inferior (MobileTabBar + MoreSheet, passo 10) em vez desta sidebar.
  */
 const NAV_ITEMS = [
   { to: '/',            icon: Home,      label: 'Home' },
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { to: '/calendario',  icon: Calendar,  label: 'Calendário' },
   { to: '/conquistas',  icon: Trophy,    label: 'Conquistas' },
   { to: '/comparador',  icon: Scale,     label: 'Comparador de Personagens' },
+  { to: '/diario',      icon: BookOpen,  label: 'Diário de Personagens' },
   { to: '/perfil',      icon: User,      label: 'Perfil' },
 ];
 

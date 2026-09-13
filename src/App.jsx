@@ -29,6 +29,7 @@ const Wrapped          = lazy(() => import('./pages/Wrapped'));
 const Games            = lazy(() => import('./pages/Games'));
 const Builds           = lazy(() => import('./pages/Builds'));
 const PublicProfile    = lazy(() => import('./pages/PublicProfile'));
+const Diario           = lazy(() => import('./pages/Diario'));
 
 export default function App() {
   return (
@@ -45,6 +46,7 @@ export default function App() {
                   <Route path="anime/:id" element={<AnimeDetail />} />
                   <Route path="personagem/:id" element={<CharacterDetail />} />
                   <Route path="comparador" element={<CharacterCompare />} />
+                  <Route path="diario" element={<Diario />} />
                   <Route path="minha-lista" element={<ProtectedRoute><MyList /></ProtectedRoute>} />
                   <Route path="stats" element={<ProtectedRoute><Stats /></ProtectedRoute>} />
                   <Route path="calendario" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
