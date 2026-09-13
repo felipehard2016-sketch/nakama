@@ -3,6 +3,7 @@ import { Trash2, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { BUILD_GAMES, getUserBuilds, addBuild, deleteBuild } from '../lib/builds';
+import ErrorState from '../components/ui/ErrorState';
 import { useTitle } from '../hooks/useTitle';
 
 export default function Builds() {
@@ -11,13 +12,20 @@ export default function Builds() {
   const { showToast } = useToast();
 
   const [builds, setBuilds]   = useState(null);
+  const [error, setError]     = useState(false);
   const [game, setGame]       = useState(BUILD_GAMES[0].value);
   const [buildName, setBuildName] = useState('');
   const [skills, setSkills]   = useState('');
   const [notes, setNotes]     = useState('');
   const [saving, setSaving]   = useState(false);
 
-  const reload = () => getUserBuilds(user.id).then(({ data }) => setBuilds(data || []));
+  const reload = () => {
+    setError(false);
+    getUserBuilds(user.id).then(({ data, error: err }) => {
+      if (err) { setError(true); return; }
+      setBuilds(data || []);
+    });
+  };
   useEffect(() => {
     if (user) reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -38,8 +46,15 @@ export default function Builds() {
   };
 
   const handleDelete = async (id) => {
+    const removed = builds.find(x => x.id === id);
     setBuilds(b => b.filter(x => x.id !== id));
-    await deleteBuild(id);
+    const { error: deleteError } = await deleteBuild(id);
+    if (deleteError) {
+      // Sem isso, a build "voltaria do nada" no próximo reload sem
+      // nenhuma explicação — o usuário teria certeza que tinha apagado.
+      showToast('Não deu para apagar. A build voltou pra lista.', 'error');
+      setBuilds(b => [...b, removed].sort((a, b2) => new Date(b2.created_at) - new Date(a.created_at)));
+    }
   };
 
   return (
@@ -87,8 +102,18 @@ export default function Builds() {
         </button>
       </form>
 
+      {error && <ErrorState message="Não deu para carregar suas builds agora." onRetry={reload} />}
+
+      {!error && builds === null && (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-20 animate-pulse rounded-lg bg-[var(--bg-card)]" />
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-col gap-3">
-        {builds?.length === 0 && <p className="py-6 text-center text-sm text-[var(--text-muted)]">Nenhuma build salva ainda.</p>}
+        {!error && builds?.length === 0 && <p className="py-6 text-center text-sm text-[var(--text-muted)]">Nenhuma build salva ainda — crie uma acima.</p>}
         {builds?.map(b => (
           <div key={b.id} className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
             <div className="flex items-start justify-between gap-2">

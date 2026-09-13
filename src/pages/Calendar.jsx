@@ -4,13 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import { getUserList, preferredTitle } from '../lib/mediaList';
 import { queryAniList, CALENDAR_SCHEDULE } from '../lib/anilist';
 import { formatCountdown } from '../lib/format';
+import ErrorState from '../components/ui/ErrorState';
 import { useTitle } from '../hooks/useTitle';
 
 export default function Calendar() {
   useTitle('Calendário');
   const { user } = useAuth();
   const [schedule, setSchedule] = useState(null);
+  const [error, setError] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000); // recalcula a contagem regressiva a cada 30s
@@ -19,21 +22,30 @@ export default function Calendar() {
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
+    setError(false);
     (async () => {
-      const { data } = await getUserList(user.id);
-      const watchingAnime = (data || [])
-        .filter(e => e.status === 'watching' && e.media_items?.type === 'anime')
-        .map(e => Number(e.media_items.external_id));
+      try {
+        const { data, error: listError } = await getUserList(user.id);
+        if (listError) throw listError;
 
-      if (watchingAnime.length === 0) { setSchedule([]); return; }
+        const watchingAnime = (data || [])
+          .filter(e => e.status === 'watching' && e.media_items?.type === 'anime')
+          .map(e => Number(e.media_items.external_id));
 
-      const result = await queryAniList(CALENDAR_SCHEDULE, { ids: watchingAnime }, { cache: true });
-      const withSchedule = result.Page.media
-        .filter(m => m.nextAiringEpisode)
-        .sort((a, b) => a.nextAiringEpisode.airingAt - b.nextAiringEpisode.airingAt);
-      setSchedule(withSchedule);
+        if (watchingAnime.length === 0) { if (!cancelled) setSchedule([]); return; }
+
+        const result = await queryAniList(CALENDAR_SCHEDULE, { ids: watchingAnime }, { cache: true });
+        const withSchedule = result.Page.media
+          .filter(m => m.nextAiringEpisode)
+          .sort((a, b) => a.nextAiringEpisode.airingAt - b.nextAiringEpisode.airingAt);
+        if (!cancelled) setSchedule(withSchedule);
+      } catch {
+        if (!cancelled) setError(true);
+      }
     })();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user, reloadKey]);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -42,7 +54,11 @@ export default function Calendar() {
         <p className="mt-1 text-sm text-[var(--text-muted)]">Próximos episódios dos animes que você está assistindo.</p>
       </div>
 
-      {schedule === null && (
+      {error && (
+        <ErrorState message="Não deu para carregar o calendário agora." onRetry={() => setReloadKey(k => k + 1)} />
+      )}
+
+      {!error && schedule === null && (
         <div className="flex flex-col gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-16 animate-pulse rounded-lg bg-[var(--bg-card)]" />
@@ -50,7 +66,7 @@ export default function Calendar() {
         </div>
       )}
 
-      {schedule?.length === 0 && (
+      {!error && schedule?.length === 0 && (
         <p className="py-10 text-center text-sm text-[var(--text-muted)]">
           Nenhum lançamento previsto — marque animes em andamento como "Assistindo" na{' '}
           <Link to="/minha-lista" className="text-purple-light hover:underline">sua lista</Link>.

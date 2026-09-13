@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { addGameToList, getUserGames, GAME_STATUS_LABELS, GAME_STATUS_ORDER } from '../lib/games';
 import { upsertListEntry } from '../lib/mediaList';
+import ErrorState from '../components/ui/ErrorState';
 import { useTitle } from '../hooks/useTitle';
 
 export default function Games() {
@@ -12,10 +13,17 @@ export default function Games() {
   const { showToast } = useToast();
 
   const [entries, setEntries] = useState(null);
+  const [error, setError]     = useState(false);
   const [title, setTitle]     = useState('');
   const [saving, setSaving]   = useState(false);
 
-  const reload = () => getUserGames(user.id).then(({ data }) => setEntries(data));
+  const reload = () => {
+    setError(false);
+    getUserGames(user.id).then(({ data, error: err }) => {
+      if (err) { setError(true); return; }
+      setEntries(data);
+    });
+  };
 
   useEffect(() => {
     if (user) reload();
@@ -26,15 +34,16 @@ export default function Games() {
     e.preventDefault();
     if (!title.trim()) return;
     setSaving(true);
-    const { error } = await addGameToList(user.id, { title });
+    const { error: addError } = await addGameToList(user.id, { title });
     setSaving(false);
-    if (error) { showToast('Não deu para adicionar.', 'error'); return; }
+    if (addError) { showToast('Não deu para adicionar.', 'error'); return; }
     setTitle('');
     reload();
   };
 
   const handleStatusChange = async (entry, status) => {
-    await upsertListEntry(user.id, entry.media_items.id, { status });
+    const { error: updateError } = await upsertListEntry(user.id, entry.media_items.id, { status });
+    if (updateError) { showToast('Não deu para atualizar o status.', 'error'); return; }
     reload();
   };
 
@@ -63,8 +72,19 @@ export default function Games() {
         </button>
       </form>
 
-      {entries === null && <p className="text-sm text-[var(--text-muted)]">Carregando…</p>}
-      {entries?.length === 0 && <p className="py-8 text-center text-sm text-[var(--text-muted)]">Nenhum jogo no backlog ainda.</p>}
+      {error && <ErrorState message="Não deu para carregar seu backlog agora." onRetry={reload} />}
+
+      {!error && entries === null && (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-14 animate-pulse rounded-lg bg-[var(--bg-card)]" />
+          ))}
+        </div>
+      )}
+
+      {!error && entries?.length === 0 && (
+        <p className="py-8 text-center text-sm text-[var(--text-muted)]">Nenhum jogo no backlog ainda — adicione um acima.</p>
+      )}
 
       <div className="flex flex-col gap-2">
         {entries?.map(entry => (

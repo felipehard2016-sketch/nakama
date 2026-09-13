@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Sparkles, Tv, Clock, CheckCircle2, Heart } f
 import { useAuth } from '../context/AuthContext';
 import { getUserList } from '../lib/mediaList';
 import { computeWrappedStats } from '../lib/stats';
+import ErrorState from '../components/ui/ErrorState';
 import { useTitle } from '../hooks/useTitle';
 
 function Slide({ icon: Icon, children }) {
@@ -19,18 +20,36 @@ export default function Wrapped() {
   const { user } = useAuth();
   const year = new Date().getFullYear();
   const [stats, setStats] = useState(null);
+  const [error, setError] = useState(false);
   const [slide, setSlide] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!user) return;
-    getUserList(user.id).then(({ data }) => setStats(computeWrappedStats(data || [], year)));
+    setError(false);
+    getUserList(user.id).then(({ data, error: err }) => {
+      if (err) { setError(true); return; }
+      setStats(computeWrappedStats(data || [], year));
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, reloadKey]);
+
+  if (error) {
+    return <ErrorState message="Não deu para montar seu Wrapped agora." onRetry={() => setReloadKey(k => k + 1)} />;
+  }
 
   if (!stats) {
     return <div className="flex min-h-[40vh] items-center justify-center">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple/25 border-t-purple" />
     </div>;
+  }
+
+  if (stats.itemsThisYear === 0) {
+    return (
+      <p className="py-16 text-center text-sm text-[var(--text-muted)]">
+        Você ainda não mexeu em nada em {year} — assista ou leia alguma coisa e marque na sua lista pra ver o Wrapped aparecer aqui.
+      </p>
+    );
   }
 
   const slides = [
