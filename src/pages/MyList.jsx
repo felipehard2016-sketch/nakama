@@ -49,6 +49,16 @@ export default function MyList() {
 
   const filtered = entries?.filter(e => filter === 'all' || e.status === filter) ?? [];
 
+  // QuickAddControl já grava no banco — aqui só refletimos o resultado
+  // na lista em tela, sem precisar recarregar tudo de novo.
+  const handleEntryChange = (mediaItemId, newEntry) => {
+    setEntries(prev => {
+      if (!prev) return prev;
+      if (!newEntry) return prev.filter(e => e.media_items.id !== mediaItemId);
+      return prev.map(e => e.media_items.id === mediaItemId ? newEntry : e);
+    });
+  };
+
   const counts = STATUS_ORDER.reduce((acc, s) => {
     acc[s] = entries?.filter(e => e.status === s).length ?? 0;
     return acc;
@@ -99,11 +109,14 @@ export default function MyList() {
                 key={entry.id}
                 media={{
                   id: m.external_id,
+                  type: m.type,
                   title: { romaji: m.title },
                   coverImage: { large: m.cover_url },
                   averageScore: entry.rating != null ? entry.rating * 10 : null,
                 }}
                 subtitle={`${STATUS_LABELS[entry.status]} · ep. ${entry.progress}`}
+                entry={entry}
+                onEntryChange={next => handleEntryChange(m.id, next)}
               />
             );
           })}

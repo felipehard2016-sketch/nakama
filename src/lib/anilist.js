@@ -102,6 +102,7 @@ export const HOME_BATCH_QUERY = `
     trending: Page(page: 1, perPage: 20) {
       media(sort: TRENDING_DESC, type: ANIME, isAdult: false) {
         id
+        type
         title { romaji english }
         coverImage { large extraLarge color }
         bannerImage
@@ -113,12 +114,13 @@ export const HOME_BATCH_QUERY = `
         seasonYear
         format
         description(asHtml: false)
-        nextAiringEpisode { airingAt episode }
+        nextAiringEpisode { airingAt episode timeUntilAiring }
       }
     }
     seasonal: Page(page: 1, perPage: 20) {
       media(season: $season, seasonYear: $year, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
         id
+        type
         title { romaji english }
         coverImage { large extraLarge color }
         bannerImage
@@ -127,24 +129,26 @@ export const HOME_BATCH_QUERY = `
         status
         genres
         format
-        nextAiringEpisode { airingAt episode }
+        nextAiringEpisode { airingAt episode timeUntilAiring }
       }
     }
     topAnime: Page(page: 1, perPage: 10) {
       media(sort: SCORE_DESC, type: ANIME, isAdult: false) {
         id
+        type
         title { romaji english }
         coverImage { large extraLarge color }
         averageScore
         format
         episodes
         status
-        nextAiringEpisode { airingAt episode }
+        nextAiringEpisode { airingAt episode timeUntilAiring }
       }
     }
     topManga: Page(page: 1, perPage: 10) {
       media(sort: SCORE_DESC, type: MANGA, isAdult: false) {
         id
+        type
         title { romaji english }
         coverImage { large extraLarge color }
         averageScore
@@ -159,13 +163,14 @@ export const HOME_BATCH_QUERY = `
 /* ── Fileiras por gênero da Home, tudo numa única requisição ── */
 const GENRE_ROW_FIELDS = `
   id
+  type
   title { romaji english }
   coverImage { large extraLarge color }
   averageScore
   format
   episodes
   status
-  nextAiringEpisode { airingAt episode }
+  nextAiringEpisode { airingAt episode timeUntilAiring }
 `;
 export const HOME_GENRE_ROWS_QUERY = `
   query HomeGenreRows {
@@ -226,6 +231,7 @@ export const SEARCH_MEDIA = `
         sort: $sort, isAdult: false
       ) {
         id
+        type
         title { romaji english }
         coverImage { large extraLarge color }
         bannerImage
@@ -238,7 +244,7 @@ export const SEARCH_MEDIA = `
         season
         seasonYear
         description(asHtml: false)
-        nextAiringEpisode { airingAt episode }
+        nextAiringEpisode { airingAt episode timeUntilAiring }
       }
     }
   }
@@ -281,6 +287,7 @@ export const MEDIA_DETAILS = `
         nodes {
           mediaRecommendation {
             id
+            type
             title { romaji english }
             coverImage { large extraLarge color }
             averageScore
@@ -289,7 +296,7 @@ export const MEDIA_DETAILS = `
             chapters
             seasonYear
             status
-            nextAiringEpisode { airingAt episode }
+            nextAiringEpisode { airingAt episode timeUntilAiring }
           }
         }
       }

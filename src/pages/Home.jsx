@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, Flame } from 'lucide-react';
+import { Play, Flame, Plus } from 'lucide-react';
 import { queryAniList, HOME_BATCH_QUERY, HOME_GENRE_ROWS_QUERY } from '../lib/anilist';
-import { getUserList, preferredTitle } from '../lib/mediaList';
+import { preferredTitle, upsertListEntry } from '../lib/mediaList';
 import { cleanAniListText } from '../lib/format';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { useQuickList } from '../hooks/useQuickList';
 import MediaRow from '../components/ui/MediaRow';
+import { FRAME_CLIP } from '../components/ui/MediaCard';
 import ErrorState from '../components/ui/ErrorState';
+import LazyImg from '../components/ui/LazyImg';
 import { useTitle } from '../hooks/useTitle';
 
 const GENRE_LABELS = [
@@ -17,6 +21,8 @@ const GENRE_LABELS = [
   ['drama', 'Drama'],
   ['sliceOfLife', 'Slice of Life'],
 ];
+
+const STEP_CUT = 'polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)';
 
 function currentSeason() {
   const month = new Date().getMonth() + 1;
@@ -62,15 +68,59 @@ function HeroBanner({ media }) {
   );
 }
 
+/**
+ * Card de "continuar assistindo": diferente do MediaCard comum porque
+ * o ponto principal aqui não é descobrir algo novo, é ver onde parou e
+ * avançar — por isso mostra "EP progresso/total" e um botão de +1 de
+ * episódio direto ali, sem precisar abrir o detalhe.
+ */
+function ContinueWatchingCard({ entry, onAdvance, advancing }) {
+  const m = entry.media_items;
+  const total = m.metadata?.episodes;
+  const atMax = total != null && entry.progress >= total;
+
+  return (
+    <div className="flex flex-col gap-2" style={{ width: '9rem' }}>
+      <Link to={`/anime/${m.external_id}`} className="group block">
+        <div
+          className="relative aspect-[2/3] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-card)] transition-[filter,transform] duration-200 group-hover:-translate-y-1 group-hover:[filter:drop-shadow(0_0_14px_var(--purple-glow))]"
+          style={{ clipPath: FRAME_CLIP }}
+        >
+          <LazyImg src={m.cover_url} alt={m.title} style={{ width: '100%', height: '100%' }} />
+        </div>
+        <p className="mt-2 line-clamp-1 text-[13px] font-medium leading-snug text-[var(--text)] group-hover:text-purple-light">
+          {m.title}
+        </p>
+      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[11px] font-bold text-[var(--text)]">
+          EP {entry.progress}{total ? ` / ${total}` : ''}
+        </span>
+        <button
+          onClick={onAdvance}
+          disabled={advancing || atMax}
+          aria-label="Avançar 1 episódio"
+          style={{ clipPath: STEP_CUT }}
+          className="flex h-6 w-6 items-center justify-center border border-[var(--border)] bg-[var(--bg-card)] text-purple-light transition-[filter] hover:[filter:drop-shadow(0_0_8px_var(--purple-glow))] disabled:opacity-30"
+        >
+          <Plus size={12} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   useTitle('Home');
   const { user } = useAuth();
+  const { showToast } = useToast();
+  const { listMap, applyListChange } = useQuickList(user?.id);
 
   const [homeData, setHomeData] = useState(null);
   const [homeError, setHomeError] = useState(false);
   const [genreRows, setGenreRows] = useState(null);
-  const [watching, setWatching] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [advancingId, setAdvancingId] = useState(null);
 
   useEffect(() => {
     setHomeError(false);
@@ -88,21 +138,33 @@ export default function Home() {
       .catch(() => setGenreRows({}));
   }, [reloadKey]);
 
-  useEffect(() => {
-    if (!user) { setWatching([]); return; }
-    // "Continuar assistindo" também é complementar — uma falha aqui não
-    // deve derrubar a Home inteira, só deixa de mostrar essa fileira.
-    getUserList(user.id).then(({ data, error }) => {
-      setWatching(error ? [] : (data || []).filter(e => e.status === 'watching').slice(0, 15));
-    });
-  }, [user]);
+  // "Continuar assistindo" vem do mesmo mapa usado pelo botão de
+  // adicionar/status dos cards (useQuickList) — antes disso, a Home
+  // fazia uma segunda consulta só pra essa fileira.
+  const watchingEntries = [...listMap.values()]
+    .filter(e => e.status === 'watching')
+    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+    .slice(0, 15);
 
-  const watchingAsMedia = (watching || []).map(entry => ({
-    id: entry.media_items.external_id,
-    title: { romaji: entry.media_items.title },
-    coverImage: { large: entry.media_items.cover_url },
-    averageScore: null,
-  }));
+  const handleAdvance = async (entry) => {
+    const m = entry.media_items;
+    setAdvancingId(m.id);
+    const nextProgress = entry.progress + 1;
+    const { data, error } = await upsertListEntry(user.id, m.id, {
+      status: entry.status,
+      progress: nextProgress,
+      rating: entry.rating,
+      favorite: entry.favorite,
+    });
+    setAdvancingId(null);
+    if (error) { showToast('Não deu para atualizar o progresso.', 'error'); return; }
+    // upsertListEntry não devolve o media_items relacionado — sem
+    // recompor aqui, o próximo render perderia capa/título/metadata
+    // desse item no mapa (ver mesmo comentário em QuickAddControl).
+    applyListChange(m.external_id, { ...data, media_items: m });
+  };
+
+  const handleEntryChange = (externalId, newEntry) => applyListChange(externalId, newEntry);
 
   const hero = homeData?.trending?.media?.[0];
 
@@ -110,8 +172,24 @@ export default function Home() {
     <div className="mx-auto flex max-w-6xl flex-col gap-10">
       {!homeError && <HeroBanner media={hero} />}
 
-      {user && watching?.length > 0 && (
-        <MediaRow title="Continuar assistindo" items={watchingAsMedia} />
+      {watchingEntries.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="h-4 w-1 rounded-full bg-gradient-to-b from-purple to-blue" />
+            <h2 className="text-lg font-bold italic tracking-tight text-[var(--text)]">Continuar assistindo</h2>
+          </div>
+          <div className="scrollbar-none flex gap-3 overflow-x-auto scroll-smooth pb-1">
+            {watchingEntries.map(entry => (
+              <div key={entry.id} className="shrink-0">
+                <ContinueWatchingCard
+                  entry={entry}
+                  advancing={advancingId === entry.media_items.id}
+                  onAdvance={() => handleAdvance(entry)}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {homeError && (
@@ -130,21 +208,21 @@ export default function Home() {
       )}
 
       {homeData?.topAnime?.media?.length > 0 && (
-        <MediaRow title="Top 10 da semana" items={homeData.topAnime.media.slice(0, 10)} ranked />
+        <MediaRow title="Top 10 da semana" items={homeData.topAnime.media.slice(0, 10)} ranked listMap={listMap} onEntryChange={handleEntryChange} />
       )}
 
       {homeData?.trending?.media?.length > 0 && (
-        <MediaRow title="Em alta agora" items={homeData.trending.media} />
+        <MediaRow title="Em alta agora" items={homeData.trending.media} listMap={listMap} onEntryChange={handleEntryChange} />
       )}
 
       {GENRE_LABELS.map(([key, label]) => (
         genreRows?.[key]?.media?.length > 0 && (
-          <MediaRow key={key} title={label} items={genreRows[key].media} />
+          <MediaRow key={key} title={label} items={genreRows[key].media} listMap={listMap} onEntryChange={handleEntryChange} />
         )
       ))}
 
       {homeData?.topManga?.media?.length > 0 && (
-        <MediaRow title="Mangás em alta" items={homeData.topManga.media} />
+        <MediaRow title="Mangás em alta" items={homeData.topManga.media} listMap={listMap} onEntryChange={handleEntryChange} />
       )}
     </div>
   );

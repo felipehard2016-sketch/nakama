@@ -4,6 +4,7 @@ import { Star, Clock, Tv } from 'lucide-react';
 import { queryAniList, MEDIA_DETAILS } from '../lib/anilist';
 import { ensureMediaItem, getListEntry, preferredTitle } from '../lib/mediaList';
 import { useAuth } from '../context/AuthContext';
+import { useQuickList } from '../hooks/useQuickList';
 import TrackingPanel from '../components/media/TrackingPanel';
 import ArcNotes from '../components/media/ArcNotes';
 import LazyImg from '../components/ui/LazyImg';
@@ -15,6 +16,7 @@ import { cleanAniListText } from '../lib/format';
 export default function AnimeDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { listMap, applyListChange } = useQuickList(user?.id);
 
   const [media, setMedia]         = useState(null);
   const [mediaItemId, setMediaItemId] = useState(null);
@@ -161,7 +163,14 @@ export default function AnimeDetail() {
             {media.recommendations.nodes
               .filter(n => n.mediaRecommendation)
               .slice(0, 12)
-              .map(n => <MediaCard key={n.mediaRecommendation.id} media={n.mediaRecommendation} />)}
+              .map(n => (
+                <MediaCard
+                  key={n.mediaRecommendation.id}
+                  media={n.mediaRecommendation}
+                  entry={listMap.get(String(n.mediaRecommendation.id))}
+                  onEntryChange={user && (next => applyListChange(n.mediaRecommendation.id, next))}
+                />
+              ))}
           </div>
         </section>
       )}

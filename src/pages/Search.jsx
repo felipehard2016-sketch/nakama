@@ -4,6 +4,8 @@ import { SearchIcon } from 'lucide-react';
 import { queryAniList, SEARCH_MEDIA } from '../lib/anilist';
 import MediaCard from '../components/ui/MediaCard';
 import { useTitle } from '../hooks/useTitle';
+import { useAuth } from '../context/AuthContext';
+import { useQuickList } from '../hooks/useQuickList';
 
 const TYPES = [
   { value: 'ANIME', label: 'Anime' },
@@ -12,6 +14,8 @@ const TYPES = [
 
 export default function Search() {
   useTitle('Buscar');
+  const { user } = useAuth();
+  const { listMap, applyListChange } = useQuickList(user?.id);
   const [params, setParams] = useSearchParams();
   const initialQuery = params.get('q') || '';
 
@@ -98,7 +102,14 @@ export default function Search() {
 
       {!loading && results.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {results.map(media => <MediaCard key={media.id} media={media} />)}
+          {results.map(media => (
+            <MediaCard
+              key={media.id}
+              media={media}
+              entry={listMap.get(String(media.id))}
+              onEntryChange={user && (next => applyListChange(media.id, next))}
+            />
+          ))}
         </div>
       )}
 

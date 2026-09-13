@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
-import { Star } from 'lucide-react';
+import { Star, Clock } from 'lucide-react';
 import LazyImg from './LazyImg';
+import QuickAddControl from './QuickAddControl';
 import { preferredTitle } from '../../lib/mediaList';
+import { formatCountdown } from '../../lib/format';
 
 /* Corte diagonal nos cantos (topo-direito / baixo-esquerdo) — parte da
    identidade "HUD" aprovada; ver mockup em Artifact. Mantido pequeno o
@@ -11,8 +13,13 @@ export const FRAME_CLIP = `polygon(${CUT}px 0, 100% 0, 100% calc(100% - ${CUT}px
 const TAG_CLIP_R = 'polygon(6px 0, 100% 0, 100% 100%, 0 100%, 0 6px)';
 const TAG_CLIP_L = 'polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%)';
 
-/** Card de pôster usado em grids (busca, trending, minha lista, recomendações). */
-export default function MediaCard({ media, subtitle }) {
+/**
+ * Card de pôster usado em grids (busca, trending, minha lista, recomendações).
+ * `entry`/`onEntryChange` são opcionais — quando vêm de um useQuickList
+ * (uma leitura por página), o card ganha o botão de adicionar/mudar
+ * status sem precisar abrir o detalhe.
+ */
+export default function MediaCard({ media, subtitle, entry, onEntryChange }) {
   const title = preferredTitle(media.title);
   const cover = media.coverImage?.large || media.coverImage?.extraLarge || media.cover_url;
   const airingEp = media.nextAiringEpisode?.episode;
@@ -44,6 +51,15 @@ export default function MediaCard({ media, subtitle }) {
             EP {airingEp}
           </div>
         )}
+
+        {onEntryChange && (
+          <QuickAddControl
+            media={media}
+            entry={entry}
+            onEntryChange={onEntryChange}
+            className="absolute bottom-2 right-2 z-20"
+          />
+        )}
       </div>
 
       <div>
@@ -51,7 +67,13 @@ export default function MediaCard({ media, subtitle }) {
           {title}
         </p>
         {subtitle && <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{subtitle}</p>}
-        {!subtitle && isReleasing && (
+        {!subtitle && media.nextAiringEpisode?.timeUntilAiring != null && (
+          <p className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] text-[var(--text-muted)]">
+            <Clock size={10} className="text-purple-light" />
+            Ep {media.nextAiringEpisode.episode} {formatCountdown(media.nextAiringEpisode.timeUntilAiring)}
+          </p>
+        )}
+        {!subtitle && media.nextAiringEpisode?.timeUntilAiring == null && isReleasing && (
           <p className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]" />
             No ar

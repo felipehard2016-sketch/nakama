@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import MediaCard, { FRAME_CLIP } from './MediaCard';
+import QuickAddControl from './QuickAddControl';
 import LazyImg from './LazyImg';
 
 /**
@@ -10,7 +11,7 @@ import LazyImg from './LazyImg';
  * padrão — um Top 10 também é um "destaque", então segue a mesma
  * moldura, só que maior.
  */
-function RankedCard({ media, rank }) {
+function RankedCard({ media, rank, entry, onEntryChange }) {
   return (
     <Link to={`/anime/${media.id}`} className="group flex items-end">
       <span
@@ -24,6 +25,9 @@ function RankedCard({ media, rank }) {
         style={{ clipPath: FRAME_CLIP }}
       >
         <LazyImg src={media.coverImage?.large} alt="" style={{ width: '100%', height: '100%' }} />
+        {onEntryChange && (
+          <QuickAddControl media={media} entry={entry} onEntryChange={onEntryChange} className="absolute bottom-2 right-2 z-20" />
+        )}
       </div>
     </Link>
   );
@@ -33,8 +37,11 @@ function RankedCard({ media, rank }) {
  * Fileira de mídia com rolagem horizontal (estilo Netflix), em vez de
  * grid que quebra linha. `ranked` liga o visual de "Top 10" (número
  * gigante atrás do pôster); sem isso, usa o MediaCard padrão.
+ *
+ * `listMap`/`onEntryChange` são opcionais — quando vêm de useQuickList,
+ * cada card da fileira ganha o botão de adicionar/mudar status.
  */
-export default function MediaRow({ title, items, ranked = false, seeAllHref }) {
+export default function MediaRow({ title, items, ranked = false, seeAllHref, listMap, onEntryChange }) {
   const scrollerRef = useRef(null);
 
   if (!items?.length) return null;
@@ -66,11 +73,17 @@ export default function MediaRow({ title, items, ranked = false, seeAllHref }) {
         </button>
 
         <div ref={scrollerRef} className="scrollbar-none flex gap-3 overflow-x-auto scroll-smooth pb-1">
-          {items.map((media, i) => (
-            <div key={media.id} className="shrink-0" style={{ width: ranked ? undefined : '7rem' }}>
-              {ranked ? <RankedCard media={media} rank={i + 1} /> : <MediaCard media={media} />}
-            </div>
-          ))}
+          {items.map((media, i) => {
+            const entry = listMap?.get(String(media.id));
+            const handleEntryChange = onEntryChange && (next => onEntryChange(media.id, next));
+            return (
+              <div key={media.id} className="shrink-0" style={{ width: ranked ? undefined : '7rem' }}>
+                {ranked
+                  ? <RankedCard media={media} rank={i + 1} entry={entry} onEntryChange={handleEntryChange} />
+                  : <MediaCard media={media} entry={entry} onEntryChange={handleEntryChange} />}
+              </div>
+            );
+          })}
         </div>
 
         <button
