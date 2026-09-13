@@ -78,6 +78,22 @@ DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
 CREATE POLICY "profiles_update_own" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
+-- Perfil público (/u/[username]): username/level já são públicos desde
+-- sempre (profiles_select_all acima), e achievements/streak também já
+-- eram (ver seções 5 e 6) — só a lista pessoal em si (o que alguém está
+-- assistindo, notas dadas) precisa de consentimento explícito, porque é
+-- a parte que revela hábito/opinião de verdade. Por isso o default é
+-- false: ninguém fica público sem escolher.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'public_list'
+  ) THEN
+    ALTER TABLE public.profiles ADD COLUMN public_list BOOLEAN NOT NULL DEFAULT false;
+  END IF;
+END $$;
+
 -- Cria o perfil (e a linha de streak) sozinho quando um usuário se cadastra.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -161,6 +177,20 @@ ALTER TABLE public.user_media_list ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "user_media_list_own" ON public.user_media_list;
 CREATE POLICY "user_media_list_own" ON public.user_media_list
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Política ADICIONAL de leitura (soma com a de cima, não substitui —
+-- múltiplas políticas permissivas do mesmo comando em Postgres são
+-- "ou" entre si): visitante consegue ler a lista de quem ativou
+-- public_list, sem precisar de sessão nenhuma. O dono sempre continua
+-- vendo a própria lista de qualquer forma, pela política acima.
+DROP POLICY IF EXISTS "user_media_list_public_read" ON public.user_media_list;
+CREATE POLICY "user_media_list_public_read" ON public.user_media_list
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = user_media_list.user_id AND p.public_list = true
+    )
+  );
 
 CREATE INDEX IF NOT EXISTS user_media_list_user_status_idx ON public.user_media_list (user_id, status);
 

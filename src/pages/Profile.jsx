@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LogOut, Flame, Trophy, BarChart2, Upload, Download } from 'lucide-react';
+import { LogOut, Flame, Trophy, BarChart2, Upload, Download, Copy, Check, Globe } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -37,6 +37,9 @@ export default function Profile() {
   const [importing, setImporting] = useState(null); // null | 'anilist' | 'mal'
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
   const fileInputRef = useRef(null);
+
+  const [togglingPublic, setTogglingPublic] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => setUsername(profile?.username || ''), [profile]);
   useEffect(() => { if (user) getStreak(user.id).then(setStreak); }, [user]);
@@ -84,6 +87,29 @@ export default function Profile() {
       showToast('Não deu para ler esse arquivo.', 'error');
     } finally {
       setImporting(null);
+    }
+  };
+
+  const handleTogglePublicList = async () => {
+    setTogglingPublic(true);
+    const nextValue = !profile?.public_list;
+    const { error } = await updateProfile({ public_list: nextValue });
+    setTogglingPublic(false);
+    showToast(
+      error ? 'Não deu para salvar.' : (nextValue ? 'Lista pública ativada!' : 'Lista voltou a ser privada.'),
+      error ? 'error' : 'success',
+    );
+  };
+
+  const publicUrl = profile?.username ? `${window.location.origin}/u/${profile.username}` : '';
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      showToast('Não deu para copiar — selecione e copie manualmente.', 'error');
     }
   };
 
@@ -135,6 +161,49 @@ export default function Profile() {
             Salvar
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text)]">
+              <Globe size={14} /> Perfil público
+            </h2>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+              Com isso ativado, qualquer pessoa com o link vê sua lista completa e suas estatísticas — sem precisar de login.
+              Nível, conquistas e streak já são sempre visíveis.
+            </p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={!!profile?.public_list}
+            aria-label="Ativar lista pública"
+            onClick={handleTogglePublicList}
+            disabled={togglingPublic || !profile?.username}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
+              profile?.public_list ? 'bg-purple' : 'bg-white/10'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                profile?.public_list ? 'translate-x-[22px]' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </div>
+
+        {!profile?.username && (
+          <p className="text-[11px] text-yellow-400/80">Defina um nome de usuário acima antes de ativar isso.</p>
+        )}
+
+        {profile?.public_list && profile?.username && (
+          <div className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-black/20 px-3 py-2">
+            <code className="flex-1 truncate text-xs text-[var(--text-secondary)]">{publicUrl}</code>
+            <button onClick={handleCopyLink} className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text)]" aria-label="Copiar link do perfil">
+              {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">

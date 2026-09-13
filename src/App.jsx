@@ -28,6 +28,7 @@ const Profile          = lazy(() => import('./pages/Profile'));
 const Wrapped          = lazy(() => import('./pages/Wrapped'));
 const Games            = lazy(() => import('./pages/Games'));
 const Builds           = lazy(() => import('./pages/Builds'));
+const PublicProfile    = lazy(() => import('./pages/PublicProfile'));
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
                   <Route path="jogos" element={<ProtectedRoute><Games /></ProtectedRoute>} />
                   <Route path="builds" element={<ProtectedRoute><Builds /></ProtectedRoute>} />
                   <Route path="perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                  <Route path="u/:username" element={<PublicProfile />} />
                 </Route>
               </Routes>
             </BrowserRouter>
