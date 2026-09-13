@@ -13,13 +13,15 @@ import ErrorState from '../components/ui/ErrorState';
 import LazyImg from '../components/ui/LazyImg';
 import { useTitle } from '../hooks/useTitle';
 
+// chave da query HOME_GENRE_ROWS_QUERY, rótulo em PT-BR, nome exato do
+// gênero na AniList (pro link "Ver tudo" cair já filtrado na Busca).
 const GENRE_LABELS = [
-  ['action', 'Ação'],
-  ['romance', 'Romance'],
-  ['comedy', 'Comédia'],
-  ['fantasy', 'Fantasia'],
-  ['drama', 'Drama'],
-  ['sliceOfLife', 'Slice of Life'],
+  ['action', 'Ação', 'Action'],
+  ['romance', 'Romance', 'Romance'],
+  ['comedy', 'Comédia', 'Comedy'],
+  ['fantasy', 'Fantasia', 'Fantasy'],
+  ['drama', 'Drama', 'Drama'],
+  ['sliceOfLife', 'Slice of Life', 'Slice of Life'],
 ];
 
 const STEP_CUT = 'polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)';
@@ -215,9 +217,16 @@ export default function Home() {
         <MediaRow title="Em alta agora" items={homeData.trending.media} listMap={listMap} onEntryChange={handleEntryChange} />
       )}
 
-      {GENRE_LABELS.map(([key, label]) => (
+      {GENRE_LABELS.map(([key, label, aniListGenre]) => (
         genreRows?.[key]?.media?.length > 0 && (
-          <MediaRow key={key} title={label} items={genreRows[key].media} listMap={listMap} onEntryChange={handleEntryChange} />
+          <MediaRow
+            key={key}
+            title={label}
+            items={genreRows[key].media}
+            listMap={listMap}
+            onEntryChange={handleEntryChange}
+            seeAllHref={`/buscar?genre=${encodeURIComponent(aniListGenre)}&type=ANIME`}
+          />
         )
       ))}
 

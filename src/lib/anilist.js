@@ -219,14 +219,14 @@ export const TRENDING_ANIME = `
 export const SEARCH_MEDIA = `
   query (
     $search: String, $type: MediaType, $genre: String, $tag: String,
-    $status: MediaStatus, $year: Int, $minScore: Int, $country: CountryCode,
+    $status: MediaStatus, $year: Int, $format: MediaFormat, $minScore: Int, $country: CountryCode,
     $sort: [MediaSort], $page: Int, $perPage: Int
   ) {
     Page(page: $page, perPage: $perPage) {
       pageInfo { total hasNextPage currentPage }
       media(
         search: $search, type: $type, genre: $genre, tag: $tag,
-        status: $status, seasonYear: $year,
+        status: $status, seasonYear: $year, format: $format,
         averageScore_greater: $minScore, countryOfOrigin: $country,
         sort: $sort, isAdult: false
       ) {

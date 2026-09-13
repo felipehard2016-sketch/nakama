@@ -32,6 +32,7 @@ export default function MyList() {
   const [entries, setEntries] = useState(null);
   const [error, setError]     = useState(false);
   const [filter, setFilter]   = useState('all');
+  const [minRating, setMinRating] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -47,7 +48,11 @@ export default function MyList() {
     });
   }, [user, reloadKey]);
 
-  const filtered = entries?.filter(e => filter === 'all' || e.status === filter) ?? [];
+  const filtered = entries?.filter(e => {
+    if (filter !== 'all' && e.status !== filter) return false;
+    if (minRating && (e.rating == null || e.rating < Number(minRating))) return false;
+    return true;
+  }) ?? [];
 
   // QuickAddControl já grava no banco — aqui só refletimos o resultado
   // na lista em tela, sem precisar recarregar tudo de novo.
@@ -71,7 +76,7 @@ export default function MyList() {
         <p className="mt-1 text-sm text-[var(--text-muted)]">{entries?.length ?? 0} itens</p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
           Tudo ({entries?.length ?? 0})
         </FilterChip>
@@ -80,6 +85,15 @@ export default function MyList() {
             {STATUS_LABELS[s]} ({counts[s]})
           </FilterChip>
         ))}
+        <select
+          aria-label="Filtrar por nota mínima"
+          value={minRating}
+          onChange={e => setMinRating(e.target.value)}
+          className="ml-auto rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 font-mono text-xs text-[var(--text)] outline-none focus:border-purple"
+        >
+          <option value="">Qualquer nota</option>
+          {[9, 8, 7, 6, 5].map(n => <option key={n} value={n}>{n}+ </option>)}
+        </select>
       </div>
 
       {error && (
@@ -97,6 +111,12 @@ export default function MyList() {
       {!error && entries?.length === 0 && (
         <p className="py-10 text-center text-sm text-[var(--text-muted)]">
           Sua lista está vazia — <Link to="/buscar" className="text-purple-light hover:underline">busque algo</Link> pra adicionar.
+        </p>
+      )}
+
+      {!error && entries?.length > 0 && filtered.length === 0 && (
+        <p className="py-10 text-center text-sm text-[var(--text-muted)]">
+          Nada na sua lista bate com esses filtros.
         </p>
       )}
 
