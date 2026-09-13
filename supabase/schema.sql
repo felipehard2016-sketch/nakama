@@ -408,3 +408,34 @@ CREATE POLICY "game_builds_own_write" ON public.game_builds
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 CREATE INDEX IF NOT EXISTS game_builds_user_game_idx ON public.game_builds (user_id, game);
+
+
+-- ────────────────────────────────────────────────────────────────
+-- 11. notifications — sino in-app de novo episódio
+--
+-- v1 client-side: sem back-end rodando sozinho (Vercel/Supabase Cron),
+-- então a checagem acontece quando alguém com sessão aberta usa o app
+-- (ver src/hooks/useNotifications.js) — não é push de verdade com o
+-- app fechado, é "avisar assim que alguém abrir o Nakama depois que o
+-- episódio saiu". UNIQUE(user_id, media_id, episode) existe justamente
+-- pra permitir usar upsert+ignoreDuplicates como "criar se não existe
+-- ainda" sem duplicar aviso do mesmo episódio.
+-- ────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id         BIGSERIAL   PRIMARY KEY,
+  user_id    UUID        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  media_id   BIGINT      NOT NULL REFERENCES public.media_items(id) ON DELETE CASCADE,
+  episode    INT         NOT NULL,
+  message    TEXT        NOT NULL,
+  read       BOOLEAN     NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, media_id, episode)
+);
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "notifications_own" ON public.notifications;
+CREATE POLICY "notifications_own" ON public.notifications
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS notifications_user_read_idx ON public.notifications (user_id, read);

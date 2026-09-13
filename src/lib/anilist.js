@@ -389,6 +389,7 @@ export const CALENDAR_SCHEDULE = `
         id
         title { romaji english }
         coverImage { large }
+        episodes
         nextAiringEpisode { airingAt episode }
       }
     }

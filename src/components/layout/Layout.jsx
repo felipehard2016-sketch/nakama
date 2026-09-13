@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import MobileTabBar from './MobileTabBar';
 import MoreSheet from './MoreSheet';
 import { useSidebar } from '../../context/SidebarContext';
+import NotificationBell from '../ui/NotificationBell';
 
 /*
  * Casco responsivo: sidebar fixa a partir de md (768px+, tablet e
@@ -28,6 +29,9 @@ export default function Layout() {
               Nakama
             </span>
           </Link>
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </header>
         <main className="min-w-0 flex-1 px-4 py-2 sm:px-6 lg:px-8">
           {/* Boundary de carregamento das páginas com code-splitting (React.lazy

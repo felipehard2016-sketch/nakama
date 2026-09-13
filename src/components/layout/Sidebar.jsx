@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Home, Search, List, BarChart2, Calendar, Trophy, Scale, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { labelForLevel } from '../../lib/leveling';
+import NotificationBell from '../ui/NotificationBell';
 
 /*
  * Sidebar fixa de desktop/tablet (a partir de md, 768px) com os 8 itens
@@ -69,6 +70,9 @@ export default function Sidebar() {
         <span className="bg-gradient-to-r from-purple to-blue bg-clip-text text-lg font-extrabold tracking-tight text-transparent">
           Nakama
         </span>
+        <div className="ml-auto">
+          <NotificationBell />
+        </div>
       </div>
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto pb-6">
         {NAV_ITEMS.map(item => <NavItem key={item.to} {...item} />)}
