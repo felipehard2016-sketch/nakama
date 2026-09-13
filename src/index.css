@@ -188,6 +188,49 @@
   box-shadow: 0 3px 8px rgba(40, 25, 10, 0.25);
 }
 
+/* ── Artefatos soltos (adesivo / etiqueta / rabisco) ──
+ * Sempre posicionados via `style` inline (coordenadas fixas por slot,
+ * ver ARTIFACT_SLOTS em Diario.jsx) — estas classes só cuidam da
+ * aparência de cada variante, nunca do posicionamento. */
+.diary-artifact-sticker {
+  background: #fffaf0;
+  box-shadow: 0 4px 10px rgba(40, 25, 10, 0.3), inset 0 0 0 2px rgba(255, 255, 255, 0.6);
+  border: 1px dashed rgba(107, 90, 66, 0.35);
+}
+
+.diary-artifact-tag {
+  background: #fffdf6;
+  box-shadow: 0 3px 8px rgba(40, 25, 10, 0.25);
+  border-radius: 3px 10px 3px 10px;
+}
+.diary-artifact-tag::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translateX(-50%);
+  background: #d8c7a0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fffdf6;
+}
+
+.diary-artifact-doodle {
+  border: 1.5px solid rgba(59, 47, 40, 0.55);
+  border-radius: 44% 56% 61% 39% / 51% 43% 57% 49%;
+  color: rgba(59, 47, 40, 0.8);
+  background: rgba(255, 253, 246, 0.35);
+}
+
+.diary-torn-corner {
+  width: 34px;
+  height: 34px;
+  clip-path: polygon(100% 100%, 32% 100%, 100% 32%);
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0) 45%, rgba(90, 70, 50, 0.18) 100%);
+  box-shadow: -2px -2px 5px rgba(90, 70, 50, 0.18) inset;
+}
+
 @keyframes diary-page-turn {
   from { opacity: 0; transform: perspective(1000px) rotateY(-6deg) translateX(2%) scale(0.98); }
   to   { opacity: 1; transform: none; }

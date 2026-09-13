@@ -24,6 +24,103 @@ const ARTIFACT_ICONS = {
  * mostra um espaço em branco no lugar da foto, o texto do diário
  * continua de pé sozinho.
  */
+/*
+ * Hash simples e determinístico (mesma label sempre gera a mesma
+ * "aleatoriedade") — sem isso, a rotação de cada artefato mudaria a
+ * cada render e o efeito colado-à-mão viraria tremedeira visual.
+ */
+function hashNum(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function rotationFor(label, spread = 8) {
+  return (hashNum(label) % (spread * 2 + 1)) - spread;
+}
+
+/*
+ * 7 posições fixas pros artefatos — nunca no meio da página (a altura do
+ * texto varia demais de personagem pra personagem pra confiar nisso), só
+ * grudadas em referências de tamanho fixo: o topo/rodapé do próprio
+ * caderno (`area: 'card'`) ou a caixa da polaroide (`area: 'photo'`,
+ * sempre a mesma proporção 3:4, não importa quanto texto o personagem
+ * tem). Um artefato com ícone 'Quote' sempre cai no último slot (a
+ * "notinha" maior, sozinha no rodapé); o resto preenche os 6 primeiros
+ * na ordem em que aparece no array de `artifacts`.
+ *
+ * Duas armadilhas que já pegaram uma primeira versão disso (ver QA):
+ * 1) `top`/`bottom` negativo faz a caixa CRESCER pra dentro do card, não
+ *    só "encostar na borda" — um item de 90px de altura com `bottom: -10`
+ *    invade ~80px pra cima. Por isso só a notinha (sozinha) bleeda pela
+ *    borda de baixo do card, e o card ganhou um `pb-*` bem folgado como
+ *    colchão pro parágrafo final nunca chegar perto dela.
+ * 2) Empilhar vários artefatos de largura fixa (em px) na mesma faixa
+ *    horizontal do card não escala: a soma das larguras pode passar da
+ *    largura do card num celular estreito e um acaba em cima do outro —
+ *    foi o que aconteceu quando 3 deles dividiam o rodapé. Por isso a
+ *    maioria vive grudada na polaroide (inclusive sangrando pro lado
+ *    direito dela — cabe no `gap-8` até a coluna de texto) em vez de
+ *    disputar espaço na borda do card.
+ */
+const ARTIFACT_SLOTS = [
+  { area: 'photo', variant: 'doodle',  style: { top: '20%', left: -30 } },
+  { area: 'card',  variant: 'sticker', style: { top: -14, left: '4%' } },
+  { area: 'card',  variant: 'tag',     style: { top: -24, right: '4%' } },
+  { area: 'photo', variant: 'doodle',  style: { bottom: -14, left: -8 } },
+  { area: 'photo', variant: 'sticker', style: { top: '42%', right: -24 } },
+  { area: 'photo', variant: 'tag',     style: { bottom: -14, right: -22 } },
+  { area: 'card',  variant: 'note',    style: { bottom: -10, left: '50%' }, center: true },
+];
+const NON_QUOTE_SLOT_ORDER = [0, 1, 2, 3, 4, 5];
+
+/** Um "artefato" solto — adesivo redondo, etiqueta de papel ou rabisco a
+ * lápis, dependendo do slot. Nunca em fluxo normal: sempre grudado numa
+ * das bordas fixas acima, por isso é seguro em qualquer largura. */
+function ArtifactMark({ artifact, slot }) {
+  const Icon = ARTIFACT_ICONS[artifact.icon] || Sparkles;
+  const rotate = rotationFor(artifact.label, slot.variant === 'note' ? 4 : 8);
+  const transform = [slot.center ? 'translateX(-50%)' : null, `rotate(${rotate}deg)`].filter(Boolean).join(' ');
+
+  if (slot.variant === 'note') {
+    return (
+      <div
+        className="diary-sticker absolute z-10 w-52 rounded-md p-3.5 text-base sm:w-60"
+        style={{ ...slot.style, transform, fontFamily: 'var(--font-hand-title)' }}
+        title={artifact.label}
+      >
+        {artifact.label}
+      </div>
+    );
+  }
+
+  if (slot.variant === 'doodle') {
+    return (
+      <div
+        className="diary-artifact-doodle absolute z-10 flex h-14 w-14 items-center justify-center sm:h-16 sm:w-16"
+        style={{ ...slot.style, transform }}
+        title={artifact.label}
+        aria-label={artifact.label}
+      >
+        <Icon size={22} strokeWidth={1.4} />
+      </div>
+    );
+  }
+
+  const isSticker = slot.variant === 'sticker';
+  return (
+    <div
+      className={`absolute z-10 flex flex-col items-center gap-1 text-center text-[10px] leading-tight ${
+        isSticker ? 'diary-artifact-sticker h-20 w-20 justify-center rounded-full p-2' : 'diary-artifact-tag w-28 gap-1.5 p-2.5 pt-3'
+      }`}
+      style={{ ...slot.style, transform }}
+      title={artifact.label}
+    >
+      <Icon size={16} strokeWidth={1.6} className="shrink-0 text-[#6b5a42]" />
+      <span className="line-clamp-2">{artifact.label}</span>
+    </div>
+  );
+}
+
 function DiaryPhoto({ searchTerm, rotate }) {
   const [state, setState] = useState({ status: 'loading', url: null });
 
@@ -74,8 +171,24 @@ export default function Diario() {
     setIndex((i + characters.length) % characters.length);
   }
 
-  const featuredArtifact = entry?.artifacts?.find(a => a.icon === 'Quote');
-  const otherArtifacts   = entry?.artifacts?.filter(a => a.icon !== 'Quote') || [];
+  // Distribui os artefatos nos slots fixos (ver ARTIFACT_SLOTS acima) —
+  // "Quote" sempre vai pro slot 'note' (por variant, não por índice fixo,
+  // pra não repetir o bug de ficar hardcoded num número que já mudou uma
+  // vez quando os slots foram reordenados); o resto ocupa
+  // NON_QUOTE_SLOT_ORDER na ordem em que aparece no array de `artifacts`.
+  const marks = [];
+  if (entry) {
+    const quote = entry.artifacts.find(a => a.icon === 'Quote');
+    if (quote) marks.push({ artifact: quote, slot: ARTIFACT_SLOTS.find(s => s.variant === 'note') });
+    entry.artifacts
+      .filter(a => a.icon !== 'Quote')
+      .forEach((a, i) => {
+        const slot = ARTIFACT_SLOTS[NON_QUOTE_SLOT_ORDER[i]];
+        if (slot) marks.push({ artifact: a, slot });
+      });
+  }
+  const photoMarks = marks.filter(m => m.slot.area === 'photo');
+  const cardMarks  = marks.filter(m => m.slot.area === 'card');
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
@@ -122,16 +235,31 @@ export default function Diario() {
       ) : (
         <div
           key={`${animeSlug}-${index}`}
-          className="diary-paper diary-page-enter relative overflow-hidden rounded-2xl p-6 shadow-2xl sm:p-10"
+          className="diary-paper diary-page-enter relative rounded-2xl p-6 pb-24 shadow-2xl sm:p-10 sm:pb-28"
         >
           <div className="diary-stain h-24 w-28" style={{ top: -20, right: 40 }} />
           <div className="diary-stain h-16 w-20" style={{ bottom: 10, left: -10 }} />
+          <div className="diary-tape absolute -top-3 left-[45%] h-6 w-16 -rotate-3" />
+          <div className="diary-torn-corner absolute bottom-0 right-0" />
+
+          {/* Artefatos soltos, grudados nas bordas fixas do caderno — nunca
+              no meio do texto (ver ARTIFACT_SLOTS). */}
+          {cardMarks.map(({ artifact, slot }) => (
+            <ArtifactMark key={artifact.label} artifact={artifact} slot={slot} />
+          ))}
 
           <div className="relative flex flex-col gap-8 sm:flex-row">
-            <div className="relative">
+            {/* w-44/sm:w-48 igual à polaroide (não `flex-1`) e `sm:self-start`
+                pra não esticar com a altura da coluna de texto — sem isso,
+                os artefatos "colados na foto" (slots 0 e 3) acabavam
+                grudados na altura errada, lá embaixo do texto. */}
+            <div className="relative mx-auto w-44 shrink-0 sm:mx-0 sm:w-48 sm:self-start">
               <div className="diary-tape absolute -top-3 left-8 h-6 w-16 -rotate-6" />
               <div className="diary-tape absolute -bottom-2 right-4 h-6 w-14 rotate-3" />
               <DiaryPhoto searchTerm={entry.anilistSearch} rotate={index % 2 === 0 ? -3 : 2} />
+              {photoMarks.map(({ artifact, slot }) => (
+                <ArtifactMark key={artifact.label} artifact={artifact} slot={slot} />
+              ))}
             </div>
 
             <div className="min-w-0 flex-1">
@@ -144,33 +272,6 @@ export default function Diario() {
               </div>
             </div>
           </div>
-
-          {featuredArtifact && (
-            <div
-              className="diary-sticker relative mt-6 max-w-sm rounded-md p-4 text-lg"
-              style={{ fontFamily: 'var(--font-hand-title)', transform: 'rotate(-1.5deg)' }}
-            >
-              {featuredArtifact.label}
-            </div>
-          )}
-
-          {otherArtifacts.length > 0 && (
-            <div className="relative mt-6 flex flex-wrap gap-3">
-              {otherArtifacts.map((a, i) => {
-                const Icon = ARTIFACT_ICONS[a.icon] || Sparkles;
-                return (
-                  <div
-                    key={a.label}
-                    className="diary-sticker flex items-center gap-2 rounded-md px-3 py-2 text-xs"
-                    style={{ transform: `rotate(${(i % 2 === 0 ? -1 : 1) * 2}deg)` }}
-                  >
-                    <Icon size={14} className="shrink-0 text-[#6b5a42]" />
-                    <span>{a.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       )}
 
