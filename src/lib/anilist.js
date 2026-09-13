@@ -142,6 +142,7 @@ export const HOME_BATCH_QUERY = `
         format
         episodes
         status
+        genres
         nextAiringEpisode { airingAt episode timeUntilAiring }
       }
     }
@@ -155,6 +156,7 @@ export const HOME_BATCH_QUERY = `
         format
         chapters
         status
+        genres
       }
     }
   }
@@ -170,6 +172,7 @@ const GENRE_ROW_FIELDS = `
   format
   episodes
   status
+  genres
   nextAiringEpisode { airingAt episode timeUntilAiring }
 `;
 export const HOME_GENRE_ROWS_QUERY = `
@@ -191,6 +194,31 @@ export const HOME_GENRE_ROWS_QUERY = `
     }
     sliceOfLife: Page(page: 1, perPage: 15) {
       media(genre: "Slice of Life", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+  }
+`;
+
+/**
+ * Recomendações simples: gêneros favoritos do usuário (calculado no
+ * client a partir da própria lista, ver Home.jsx) + nota alta da
+ * comunidade. `genre_in` aceita vários gêneros de uma vez (OR entre
+ * eles) — uma chamada só, não uma por gênero.
+ */
+export const RECOMMENDATION_QUERY = `
+  query ($genres: [String], $page: Int, $perPage: Int) {
+    Page(page: $page, perPage: $perPage) {
+      media(genre_in: $genres, type: ANIME, sort: SCORE_DESC, averageScore_greater: 72, isAdult: false) {
+        id
+        type
+        title { romaji english }
+        coverImage { large extraLarge color }
+        averageScore
+        format
+        episodes
+        status
+        genres
+        nextAiringEpisode { airingAt episode timeUntilAiring }
+      }
     }
   }
 `;

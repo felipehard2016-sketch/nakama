@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Flame, Plus } from 'lucide-react';
-import { queryAniList, HOME_BATCH_QUERY, HOME_GENRE_ROWS_QUERY } from '../lib/anilist';
+import { queryAniList, HOME_BATCH_QUERY, HOME_GENRE_ROWS_QUERY, RECOMMENDATION_QUERY } from '../lib/anilist';
 import { preferredTitle, upsertListEntry } from '../lib/mediaList';
 import { cleanAniListText } from '../lib/format';
+import { computeTopGenres, excludeTracked } from '../lib/recommendations';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useQuickList } from '../hooks/useQuickList';
@@ -116,13 +117,38 @@ export default function Home() {
   useTitle('Home');
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { listMap, applyListChange } = useQuickList(user?.id);
+  const { listMap, listLoaded, applyListChange } = useQuickList(user?.id);
 
   const [homeData, setHomeData] = useState(null);
   const [homeError, setHomeError] = useState(false);
   const [genreRows, setGenreRows] = useState(null);
+  const [recommended, setRecommended] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [advancingId, setAdvancingId] = useState(null);
+
+  // Espelha `listMap` num ref, atualizado em efeito (nunca direto no
+  // corpo do render) — só pra o efeito de recomendação abaixo poder ler
+  // o valor mais recente sem precisar re-rodar toda vez que o mapa muda.
+  const listMapRef = useRef(listMap);
+  useEffect(() => { listMapRef.current = listMap; }, [listMap]);
+
+  // Recomendação simples: gêneros favoritos calculados uma vez, quando a
+  // lista termina de carregar — não a cada mudança dela (senão cada
+  // clique no botão de status do card dispararia uma busca nova na
+  // AniList). Sem lista/gênero suficiente (não logado, lista vazia),
+  // `recommended` fica [] e a fileira simplesmente não aparece.
+  useEffect(() => {
+    if (!listLoaded) return;
+    const topGenres = computeTopGenres([...listMapRef.current.values()], 3);
+    if (topGenres.length === 0) { setRecommended([]); return; }
+
+    queryAniList(RECOMMENDATION_QUERY, { genres: topGenres, page: 1, perPage: 20 })
+      .then(data => {
+        const trackedIds = new Set(listMapRef.current.keys());
+        setRecommended(excludeTracked(data.Page.media, trackedIds).slice(0, 15));
+      })
+      .catch(() => setRecommended([]));
+  }, [listLoaded]);
 
   useEffect(() => {
     setHomeError(false);
@@ -192,6 +218,10 @@ export default function Home() {
             ))}
           </div>
         </section>
+      )}
+
+      {recommended?.length > 0 && (
+        <MediaRow title="Recomendado pra você" items={recommended} listMap={listMap} onEntryChange={handleEntryChange} />
       )}
 
       {homeError && (
