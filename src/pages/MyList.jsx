@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getUserList, STATUS_LABELS, STATUS_ORDER } from '../lib/mediaList';
+import { listToCSV, listToJSON, downloadTextFile } from '../lib/exportList';
 import { useTitle } from '../hooks/useTitle';
 import MediaCard from '../components/ui/MediaCard';
 import ErrorState from '../components/ui/ErrorState';
@@ -69,11 +71,36 @@ export default function MyList() {
     return acc;
   }, {});
 
+  const handleExport = (format) => {
+    if (!entries?.length) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    if (format === 'csv') downloadTextFile(`nakama-lista-${stamp}.csv`, listToCSV(entries), 'text/csv;charset=utf-8');
+    else downloadTextFile(`nakama-lista-${stamp}.json`, listToJSON(entries), 'application/json');
+  };
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text)]">Minha Lista</h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">{entries?.length ?? 0} itens</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text)]">Minha Lista</h1>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{entries?.length ?? 0} itens</p>
+        </div>
+        {!!entries?.length && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleExport('csv')}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text)]"
+            >
+              <Download size={13} /> CSV
+            </button>
+            <button
+              onClick={() => handleExport('json')}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text)]"
+            >
+              <Download size={13} /> JSON
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
