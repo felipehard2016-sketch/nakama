@@ -283,6 +283,12 @@ export const MEDIA_DETAILS = `
           voiceActors(language: JAPANESE) { id name { full } image { large } }
         }
       }
+      staff(sort: RELEVANCE, perPage: 8) {
+        edges {
+          role
+          node { id name { full } image { large } }
+        }
+      }
       recommendations(sort: RATING_DESC, perPage: 12) {
         nodes {
           mediaRecommendation {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Star, Clock, Tv } from 'lucide-react';
+import { Star, Clock, Tv, Mic2 } from 'lucide-react';
 import { queryAniList, MEDIA_DETAILS } from '../lib/anilist';
 import { ensureMediaItem, getListEntry, preferredTitle } from '../lib/mediaList';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +12,16 @@ import MediaCard from '../components/ui/MediaCard';
 import Formatted from '../components/ui/Formatted';
 import { useTitle } from '../hooks/useTitle';
 import { cleanAniListText } from '../lib/format';
+
+// Nomes em PT-BR pros tipos de relação da AniList (relationType), usado
+// na seção "Obras relacionadas".
+const RELATION_LABELS = {
+  ADAPTATION: 'Adaptação', PREQUEL: 'Prequela', SEQUEL: 'Sequência',
+  PARENT: 'Obra original', SIDE_STORY: 'História paralela',
+  CHARACTER: 'Personagem em comum', SUMMARY: 'Resumo',
+  ALTERNATIVE: 'Versão alternativa', SPIN_OFF: 'Spin-off',
+  COMPILATION: 'Compilação', CONTAINS: 'Contém', OTHER: 'Relacionado',
+};
 
 export default function AnimeDetail() {
   const { id } = useParams();
@@ -120,6 +130,12 @@ export default function AnimeDetail() {
               Estúdio: {media.studios.nodes.filter(s => s.isAnimationStudio).map(s => s.name).join(', ') || media.studios.nodes[0]?.name}
             </p>
           )}
+
+          {media.staff?.edges?.length > 0 && (
+            <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+              {media.staff.edges.slice(0, 3).map(({ node, role }) => `${node.name?.full} (${role})`).join(' · ')}
+            </p>
+          )}
         </div>
 
         <div className="w-full shrink-0 md:w-64">
@@ -141,15 +157,56 @@ export default function AnimeDetail() {
         <section>
           <h2 className="mb-3 text-lg font-semibold text-[var(--text)]">Personagens</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-            {media.characters.edges.slice(0, 16).map(({ node, role }) => (
+            {media.characters.edges.slice(0, 16).map(({ node, role, voiceActors }) => (
               <Link key={node.id} to={`/personagem/${node.id}`} className="group flex flex-col gap-1.5">
                 <div className="aspect-[2/3] overflow-hidden rounded-lg bg-[var(--bg-card)]">
                   <LazyImg src={node.image?.large} alt={node.name?.full} style={{ width: '100%', height: '100%' }} />
                 </div>
                 <p className="line-clamp-1 text-[11px] font-medium text-[var(--text)] group-hover:text-purple-light">{node.name?.full}</p>
                 <p className="text-[10px] text-[var(--text-muted)]">{role}</p>
+                {voiceActors?.[0]?.name?.full && (
+                  <p className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
+                    <Mic2 size={9} className="shrink-0" />
+                    <span className="line-clamp-1">{voiceActors[0].name.full}</span>
+                  </p>
+                )}
               </Link>
             ))}
+          </div>
+        </section>
+      )}
+
+      {media.trailer?.id && media.trailer.site?.toLowerCase() === 'youtube' && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold text-[var(--text)]">Trailer</h2>
+          <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+            <iframe
+              src={`https://www.youtube.com/embed/${media.trailer.id}`}
+              title={`Trailer de ${title}`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="h-full w-full"
+            />
+          </div>
+        </section>
+      )}
+
+      {media.relations?.edges?.filter(e => e.node).length > 0 && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold text-[var(--text)]">Obras relacionadas</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {media.relations.edges
+              .filter(e => e.node)
+              .slice(0, 12)
+              .map(e => (
+                <MediaCard
+                  key={e.node.id}
+                  media={e.node}
+                  subtitle={RELATION_LABELS[e.relationType] || 'Relacionado'}
+                  entry={listMap.get(String(e.node.id))}
+                  onEntryChange={user && (next => applyListChange(e.node.id, next))}
+                />
+              ))}
           </div>
         </section>
       )}
