@@ -58,11 +58,113 @@ Meu bando é minha família. Não me importo com o quanto o mar é grande ou qua
 P.S.: alguém comeu minha carne de novo enquanto eu escrevia isso e juro que vou descobrir quem foi.
       `,
       artifacts: [
-        { icon: 'Crown',    label: 'Chapéu de palha, emprestado do Shanks' },
-        { icon: 'Sparkles', label: 'Fruta Gomu Gomu (na verdade, Hito Hito no Mi, Modelo Nika)' },
-        { icon: 'Bandage',  label: 'Cicatriz embaixo do olho esquerdo' },
-        { icon: 'Wine',     label: 'Os copos quebrados do juramento com Ace e Sabo' },
-        { icon: 'Quote',    label: '"Eu serei o Rei dos Piratas!"' },
+        { icon: 'Crown',      label: 'Chapéu de palha, emprestado do Shanks' },
+        { icon: 'Sparkles',   label: 'Fruta Gomu Gomu (na verdade, Hito Hito no Mi, Modelo Nika)' },
+        { icon: 'Bandage',    label: 'Cicatriz embaixo do olho esquerdo' },
+        { icon: 'Flame',      label: 'Cicatriz em X no peito, de Marineford' },
+        { icon: 'Footprints', label: 'Sandálias — nunca usou outro tipo de calçado' },
+        { icon: 'Wine',       label: 'Os copos quebrados do juramento com Ace e Sabo' },
+        { icon: 'Quote',      label: '"Eu serei o Rei dos Piratas!"' },
+      ],
+    },
+    {
+      id: 'zoro',
+      name: 'Roronoa Zoro',
+      role: 'Espadachim dos Chapéus de Palha · futuro maior espadachim do mundo',
+      anilistSearch: 'Roronoa Zoro',
+      entry: `
+Não sou de escrever. Vou fazer isso do jeito que treino: sem enrolação.
+
+Comecei a usar espada cedo, no dojo do mestre Koshiro. Tinha uma rival lá, a Kuina — a única pessoa que me derrotava, todas as vezes, durante anos. Prometemos um dia descobrir qual de nós dois seria o maior espadachim do mundo. Ela morreu antes disso, caiu de uma escada, um jeito idiota e sem sentido de morrer pra alguém tão forte. Peguei a espada dela, a Wado Ichimonji, e decidi carregar o sonho pelos dois. Não é sobre mim mais. Nunca mais vou perder uma luta — prometi isso pro corpo dela, e prometo de novo toda vez que empunho essa lâmina.
+
+O Luffy me achou amarrado numa base da Marinha, prestes a ser executado por um capitão corrupto. Eu tinha me rendido de propósito pra proteger uma garotinha, a Rika, e não ia explicar isso pra ninguém — não faço as coisas por reconhecimento. Ele me soltou sem perguntar muito. Foi o primeiro a entrar no bando dele. Continuo sendo o primeiro imediato, o que segura a linha quando ele faz alguma idiotice (o que é sempre).
+
+Em Thriller Bark, recebi no meu corpo todo o dano que o Kuma tinha causado no Luffy — quase morri fazendo isso. Quando o Chopper perguntou o que tinha acontecido comigo, falei que não tinha acontecido nada. Não foi orgulho. É que dizer a verdade não ia mudar o resultado, só ia fazer os outros sofrerem por mim também.
+
+Uso três espadas ao mesmo tempo — Santoryu, um estilo que inventei porque duas mãos nunca me pareceram suficiente. Tenho uma cicatriz enorme no peito, de ombro a quadril, que o Mihawk me deu de propósito, sem nem se esforçar, só pra eu entender a distância entre nós. Vou fechar essa distância. Não é ambição, é uma dívida com a Kuina que ainda não terminei de pagar.
+      `,
+      artifacts: [
+        { icon: 'Sword',  label: 'Wado Ichimonji, a espada da Kuina' },
+        { icon: 'Swords', label: 'Santoryu, o estilo de três espadas' },
+        { icon: 'Shirt',  label: 'Haramaki verde na cintura' },
+        { icon: 'Shield', label: 'Bandana preta, amarrada no braço antes de brigas sérias' },
+        { icon: 'Bandage', label: 'Cicatriz de ombro a quadril, dada pelo Mihawk' },
+        { icon: 'Quote',  label: '"Nada aconteceu."' },
+      ],
+    },
+    {
+      id: 'nami',
+      name: 'Nami',
+      role: 'Navegadora dos Chapéus de Palha',
+      anilistSearch: 'Nami',
+      entry: `
+Vou escrever isso rápido antes que alguém tente me cobrar por usar o papel.
+
+Cresci em Cocoyasi com a Bell-mère, uma ex-fuzileira que me adotou junto com minha irmã Nojiko, sem nunca fazer diferença entre nós duas terem ou não o mesmo sangue dela. Quando o Arlong e a tripulação dele tomaram a vila, a Bell-mère morreu na nossa frente pra nos proteger — e eu tive que sorrir e trabalhar pro homem que matou minha mãe por oito anos, desenhando mapas pra ele, fingindo lealdade, roubando de outros piratas por trás dele, tudo pra juntar cem milhões de berries e comprar a liberdade da minha vila de volta. Ninguém sabia que era esse o meu plano. Deixei todo mundo achar que eu tinha virado uma pirata de verdade, sem coração.
+
+Quando o dinheiro finalmente ficou perto do suficiente, o Arlong descobriu e rasgou o mapa que eu tinha desenhado da vila, rindo, dizendo que aquele sonho nunca ia valer nada contra ele. Foi aí que gritei por ajuda — de verdade, pela primeira vez em anos — e o Luffy apareceu.
+
+Depois que o Arlong caiu, tirei a marca que ele tinha me obrigado a tatuar e coloquei uma tangerina com um cata-vento no lugar, o símbolo da Bell-mère. Entrei pro bando chorando, pedindo desculpa por ter mentido pra eles a viagem inteira. O Luffy só riu e disse que tanto fazia.
+
+Hoje desenho o mapa do mundo inteiro, não só de uma vila. Cobro todo mundo do bando por qualquer coisa (é hábito, não me julguem) e ainda cuido do pomar de tangerinas que a Bell-mère plantou, agora dentro do nosso navio. Cada fruta que colho de lá é prova de que consegui: ninguém tira mais nada de mim à força de novo.
+      `,
+      artifacts: [
+        { icon: 'Wand2',    label: 'Bastão Clima-Tact, que controla o clima' },
+        { icon: 'Palette',  label: 'Tatuagem de tangerina e cata-vento no ombro' },
+        { icon: 'Compass',  label: 'Mapa do mundo inteiro, sempre em construção' },
+        { icon: 'Citrus',   label: 'Pomar de tangerinas da Bell-mère, replantado no navio' },
+        { icon: 'Banknote', label: 'A bolsa de berries — ela cobra por tudo' },
+        { icon: 'Quote',    label: '"Me ajudem... por favor!"' },
+      ],
+    },
+    {
+      id: 'usopp',
+      name: 'Usopp',
+      role: 'Atirador dos Chapéus de Palha · autoproclamado "Rei Atirador"',
+      anilistSearch: 'Usopp',
+      entry: `
+Escutem bem, porque isso aqui vai ser contado por ninguém menos que o grande capitão Usopp, líder de oitenta mil hom— tá, tá bom, sou só eu, o Usopp, mentindo de novo. É hábito antigo.
+
+Meu pai, o Yasopp, é atirador da tripulação do Shanks. Ele foi embora pro mar quando eu era pequeno, e eu esperava ele voltar sentado no píer da Vila de Syrup, inventando histórias absurdas sobre piratas pra qualquer um que passasse — principalmente pra minha mãe, a Banchina, que estava doente e nunca contei que sabia que ela não ia melhorar. Mentir virou meu jeito de fazer as pessoas sorrirem quando a verdade era demais pra aguentar.
+
+Quero ser um "guerreiro corajoso do mar", só que sou covarde de nascença — tremo, choro, tento fugir. A diferença é que aprendi a fazer a coisa certa mesmo tremendo. Isso não sai em nenhuma história que eu conto sobre mim mesmo, mas é a parte verdadeira.
+
+Em Water 7, discordei do Luffy sobre abandonar o Going Merry — aquele navio tinha me visto virar alguém, não ia deixar barato. Brigamos de verdade, saí do bando por orgulho, virei o "Sogeking" atrás de uma máscara pra poder voltar a ajudar sem admitir que tinha errado. Voltei. Ele nunca cobrou nada por isso.
+
+Uso um estilingue, o Kabuto, com munição que eu mesmo invento. Ninguém no bando é páreo pra minha mira, mesmo que todo mundo zoe meu nariz e minhas histórias mirabolantes. Um dia, esse nariz vai estar em livro de história de verdade — dessa vez sem exagero nenhum.
+      `,
+      artifacts: [
+        { icon: 'Target',  label: 'Estilingue Kabuto e as munições que ele mesmo cria' },
+        { icon: 'Drama',   label: 'Máscara do "Sogeking, o Rei Atirador"' },
+        { icon: 'Star',    label: 'O nariz comprido — orgulho e piada favorita da tripulação' },
+        { icon: 'Flag',    label: 'Bandeira pirata que desenhou ainda criança, em Syrup Village' },
+        { icon: 'Feather', label: 'Lembrança do pai, Yasopp, atirador do bando do Shanks' },
+        { icon: 'Quote',   label: '"Sou um covarde... mas um covarde corajoso!"' },
+      ],
+    },
+    {
+      id: 'sanji',
+      name: 'Sanji',
+      role: 'Cozinheiro dos Chapéus de Palha · em busca do All Blue',
+      anilistSearch: 'Sanji Vinsmoke',
+      entry: `
+Uma senhora nunca deveria ter que ler um diário de um homem chorando, então vou escrever isso rápido e com classe.
+
+Fiquei preso no mar, aos nove anos, numa rocha, sem comida, por 85 dias, com o Zeff — dono do restaurante flutuante Baratie. Ele tinha comida escondida o bastante pra um de nós sobreviver. Me deu tudo. Cortou a própria perna depois, pra não morrer de fome sem me contar, só pra eu não sentir culpa de ter comido a parte dele. Devo minha vida inteira a esse velho teimoso, e passei anos cozinhando de graça no Baratie só pra tentar, sem nunca conseguir, pagar essa dívida de volta.
+
+Meu sonho é achar o All Blue — o mar lendário onde os peixes dos quatro oceanos se encontram. Todo cozinheiro do mundo ri quando eu falo isso. Não me importo.
+
+Luto só com as pernas. Nunca com as mãos — são ferramenta de cozinheiro, não de briga, e eu não misturo as duas coisas. E tem uma regra que não abro exceção nenhuma: nunca levanto a mão pra uma mulher, custe o que custar, e nunca deixo ninguém com fome sair da minha cozinha de estômago vazio. São as únicas duas coisas no mundo que considero realmente sagradas.
+
+Fumo demais, tenho a sobrancelha enrolada de um jeito que ninguém mais na minha família tem (a família de sangue, os Vinsmoke — outra história, mais triste, que não vou escrever hoje), e sim, eu flerto com qualquer mulher que aparece na minha frente. O Zoro me chama de idiota por isso. Ele que tente cozinhar pra oito pessoas depois de perder uma perna aos nove anos e ver no que dá.
+      `,
+      artifacts: [
+        { icon: 'Flame',      label: 'Perna Negra — chutes que, mais tarde, pegam fogo de verdade (Diable Jambe)' },
+        { icon: 'Cigarette',  label: 'Cigarro sempre aceso' },
+        { icon: 'Sparkles',   label: 'Sobrancelha em espiral' },
+        { icon: 'Shirt',      label: 'Terno impecável, mesmo no meio de uma briga' },
+        { icon: 'Heart',      label: 'A perna que o Zeff sacrificou por ele' },
+        { icon: 'Quote',      label: '"Um homem nunca levanta a mão pra uma mulher."' },
       ],
     },
   ],

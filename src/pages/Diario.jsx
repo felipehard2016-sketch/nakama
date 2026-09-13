@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react';
 import {
   BookOpen, ChevronLeft, ChevronRight,
   Crown, Sparkles, Bandage, Wine, Quote, Shield, Orbit, Flame, Shirt, Swords, Feather, Brush,
+  Sword, Wand2, Palette, Compass, Citrus, Banknote, Target, Drama, Star, Flag, Cigarette,
+  Heart, Footprints,
 } from 'lucide-react';
 import { queryAniList, SEARCH_CHARACTERS } from '../lib/anilist';
 import { DIARY_ANIME_LIST, CHARACTER_DIARIES } from '../data/characterDiaries';
 import { useTitle } from '../hooks/useTitle';
 
-const ARTIFACT_ICONS = { Crown, Sparkles, Bandage, Wine, Quote, Shield, Orbit, Flame, Shirt, Swords, Feather, Brush };
+const ARTIFACT_ICONS = {
+  Crown, Sparkles, Bandage, Wine, Quote, Shield, Orbit, Flame, Shirt, Swords, Feather, Brush,
+  Sword, Wand2, Palette, Compass, Citrus, Banknote, Target, Drama, Star, Flag, Cigarette,
+  Heart, Footprints,
+};
 
 /*
  * Não guardamos ID nem foto fixa por personagem — só o nome exato pra
