@@ -24,8 +24,21 @@
 -- user_profiles, episode_progress, anime_reviews, review_votes) não
 -- têm conflito de nome com a v2 — ficam como estão, sem uso pelo
 -- código novo, até você decidir apagá-las.
+--
+-- Isso só pode acontecer UMA vez (a segunda vez, "user_media_list" já
+-- é a tabela v2 e "user_media_list_legacy_v1" já existe da primeira
+-- vez) — por isso o guard: só renomeia se o backup ainda não existe.
+-- Sem isso, rodar este arquivo pela segunda vez falha com "relation
+-- user_media_list_legacy_v1 already exists".
 -- ────────────────────────────────────────────────────────────────
-ALTER TABLE IF EXISTS public.user_media_list RENAME TO user_media_list_legacy_v1;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_media_list')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_media_list_legacy_v1')
+  THEN
+    ALTER TABLE public.user_media_list RENAME TO user_media_list_legacy_v1;
+  END IF;
+END $$;
 
 
 -- ────────────────────────────────────────────────────────────────
