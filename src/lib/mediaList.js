@@ -78,3 +78,24 @@ export async function getUserList(userId) {
     .eq('user_id', userId)
     .order('updated_at', { ascending: false });
 }
+
+/**
+ * Upsert em lote no catálogo — usado pela importação (lib/importList.js):
+ * uma chamada pra N itens de uma vez, em vez de N chamadas (importar uma
+ * lista de 300 títulos não pode virar 300 requisições ao Supabase).
+ */
+export async function bulkEnsureMediaItems(items) {
+  const rows = items.map(i => ({
+    type: i.type, external_id: String(i.externalId), title: i.title, cover_url: i.coverUrl, metadata: i.metadata || {},
+  }));
+  return supabase.from('media_items').upsert(rows, { onConflict: 'type,external_id' }).select();
+}
+
+/** Upsert em lote na lista pessoal — mesma ideia de bulkEnsureMediaItems, pra importação. */
+export async function bulkUpsertListEntries(userId, rows) {
+  const payload = rows.map(r => ({
+    user_id: userId, media_id: r.mediaId, status: r.status,
+    progress: r.progress || 0, rating: r.rating ?? null, favorite: r.favorite ?? false,
+  }));
+  return supabase.from('user_media_list').upsert(payload, { onConflict: 'user_id,media_id' }).select();
+}

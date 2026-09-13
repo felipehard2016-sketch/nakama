@@ -204,6 +204,65 @@ export const HOME_GENRE_ROWS_QUERY = `
  * comunidade. `genre_in` aceita vários gêneros de uma vez (OR entre
  * eles) — uma chamada só, não uma por gênero.
  */
+/**
+ * Lista pública de um usuário da AniList — não precisa de OAuth (só dá
+ * pra ler lista PRIVADA com login da própria conta, que é uma decisão
+ * separada, registrada na conversa). score(format: POINT_10) normaliza
+ * a nota pro nosso 0-10 independente do sistema de pontuação que o
+ * usuário usa lá (AniList deixa POINT_100, POINT_5 etc. — sem forçar o
+ * formato aqui, o valor bruto viria em escalas diferentes).
+ */
+export const ANILIST_LIST_COLLECTION = `
+  query ($userName: String, $type: MediaType) {
+    MediaListCollection(userName: $userName, type: $type) {
+      lists {
+        entries {
+          status
+          progress
+          score(format: POINT_10)
+          media {
+            id
+            type
+            title { romaji english }
+            coverImage { large }
+            episodes
+            chapters
+            genres
+            format
+            status
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Resolve ids do MyAnimeList (do export XML) pro id interno da AniList
+ * — em lote (idMal_in), não um por um, senão importar uma lista de 300
+ * títulos vira 300 chamadas e esbarra no rate limit da AniList. `type`
+ * é obrigatório aqui: MAL numera anime e mangá em espaços separados, um
+ * mesmo número pode ser um anime E um mangá diferentes.
+ */
+export const MAL_ID_LOOKUP = `
+  query ($malIds: [Int], $type: MediaType) {
+    Page(perPage: 50) {
+      media(idMal_in: $malIds, type: $type) {
+        id
+        idMal
+        type
+        title { romaji english }
+        coverImage { large }
+        episodes
+        chapters
+        genres
+        format
+        status
+      }
+    }
+  }
+`;
+
 export const RECOMMENDATION_QUERY = `
   query ($genres: [String], $page: Int, $perPage: Int) {
     Page(page: $page, perPage: $perPage) {
