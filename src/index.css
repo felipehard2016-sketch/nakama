@@ -188,39 +188,51 @@
   box-shadow: 0 3px 8px rgba(40, 25, 10, 0.25);
 }
 
-/* ── Artefatos soltos (adesivo / etiqueta / rabisco) ──
+/* ── Artefatos: foto real recortada do material de origem ──
  * Sempre posicionados via `style` inline (coordenadas fixas por slot,
- * ver ARTIFACT_SLOTS em Diario.jsx) — estas classes só cuidam da
- * aparência de cada variante, nunca do posicionamento. */
-.diary-artifact-sticker {
-  background: #fffaf0;
-  box-shadow: 0 4px 10px rgba(40, 25, 10, 0.3), inset 0 0 0 2px rgba(255, 255, 255, 0.6);
-  border: 1px dashed rgba(107, 90, 66, 0.35);
-}
-
-.diary-artifact-tag {
+ * ver ARTIFACT_SLOTS em Diario.jsx). Cada `variant` só muda o FORMATO
+ * do recorte (nunca o conteúdo — sempre a foto, nunca ícone/texto):
+ * `doodle` = recorte redondo pequeno, `sticker` = recorte "rasgado"
+ * orgânico maior, `tag` = recorte retangular com borda irregular.
+ * `clip-path` no próprio container corta a `<img>` filha junto — é
+ * assim que a borda "rasgada" nasce sem precisar tratar a imagem.
+ */
+.diary-cutout-round {
+  padding: 4px;
   background: #fffdf6;
-  box-shadow: 0 3px 8px rgba(40, 25, 10, 0.25);
-  border-radius: 3px 10px 3px 10px;
-}
-.diary-artifact-tag::before {
-  content: '';
-  position: absolute;
-  top: -5px;
-  left: 50%;
-  width: 8px;
-  height: 8px;
-  transform: translateX(-50%);
-  background: #d8c7a0;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px #fffdf6;
+  box-shadow: 0 4px 10px rgba(40, 25, 10, 0.35);
+}
+.diary-cutout-round img { border-radius: 50%; }
+
+.diary-cutout-torn {
+  padding: 6px;
+  background: #fffdf6;
+  box-shadow: 0 4px 12px rgba(40, 25, 10, 0.35);
+  clip-path: polygon(
+    20% 0%, 55% 3%, 82% 11%, 97% 32%, 100% 57%, 93% 79%,
+    71% 96%, 43% 100%, 16% 93%, 2% 69%, 0% 41%, 7% 15%
+  );
 }
 
-.diary-artifact-doodle {
-  border: 1.5px solid rgba(59, 47, 40, 0.55);
-  border-radius: 44% 56% 61% 39% / 51% 43% 57% 49%;
-  color: rgba(59, 47, 40, 0.8);
-  background: rgba(255, 253, 246, 0.35);
+.diary-cutout-tag {
+  padding: 6px;
+  background: #fffdf6;
+  box-shadow: 0 3px 10px rgba(40, 25, 10, 0.3);
+  clip-path: polygon(
+    4% 5%, 30% 0%, 68% 2%, 96% 7%, 100% 34%, 97% 68%,
+    100% 91%, 72% 98%, 40% 100%, 10% 94%, 0% 71%, 3% 38%
+  );
+}
+
+/* Cartão "aguardando foto" — mesmo contorno do recorte final (pra não
+ * saltar de tamanho/forma quando a imagem real chegar), mas claramente
+ * um estado provisório: tracejado, sem imagem, sem ícone genérico no
+ * lugar. Nunca deve aparecer na versão publicada pro usuário final. */
+.diary-artifact-pending {
+  background: rgba(255, 253, 246, 0.5);
+  border: 1.5px dashed rgba(107, 90, 66, 0.45);
+  font-family: var(--font-hand);
 }
 
 .diary-torn-corner {

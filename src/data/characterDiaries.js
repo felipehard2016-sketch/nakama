@@ -57,14 +57,21 @@ Meu bando é minha família. Não me importo com o quanto o mar é grande ou qua
 
 P.S.: alguém comeu minha carne de novo enquanto eu escrevia isso e juro que vou descobrir quem foi.
       `,
+      // Artefatos usam foto real recortada do material de origem (wiki
+      // oficial do anime), nunca ícone de biblioteca — `image` é o
+      // arquivo em public/artifacts/<anime>/. Enquanto a imagem ainda não
+      // foi enviada, a Diario.jsx mostra um cartão "aguardando foto" em
+      // vez de ícone genérico ou de deixar quebrado (ver ArtifactMark).
+      // O único que foge disso é a frase de efeito (`icon: 'Quote'`),
+      // que é texto por natureza — vira a "notinha" da página, não uma foto.
       artifacts: [
-        { icon: 'Crown',      label: 'Chapéu de palha, emprestado do Shanks' },
-        { icon: 'Sparkles',   label: 'Fruta Gomu Gomu (na verdade, Hito Hito no Mi, Modelo Nika)' },
-        { icon: 'Bandage',    label: 'Cicatriz embaixo do olho esquerdo' },
-        { icon: 'Flame',      label: 'Cicatriz em X no peito, de Marineford' },
-        { icon: 'Footprints', label: 'Sandálias — nunca usou outro tipo de calçado' },
-        { icon: 'Wine',       label: 'Os copos quebrados do juramento com Ace e Sabo' },
-        { icon: 'Quote',      label: '"Eu serei o Rei dos Piratas!"' },
+        { image: 'one-piece/chapeu-palha.png',      label: 'Chapéu de palha, emprestado do Shanks' },
+        { image: 'one-piece/fruta-gomu-gomu.png',   label: 'Fruta Gomu Gomu (na verdade, Hito Hito no Mi, Modelo Nika)' },
+        { image: 'one-piece/cicatriz-olho.png',     label: 'Cicatriz embaixo do olho esquerdo' },
+        { image: 'one-piece/cicatriz-peito.png',    label: 'Cicatriz em X no peito, de Marineford' },
+        { image: 'one-piece/sandalias.png',         label: 'Sandálias — nunca usou outro tipo de calçado' },
+        { image: 'one-piece/copos-juramento.png',   label: 'Os copos quebrados do juramento com Ace e Sabo' },
+        { icon: 'Quote',                            label: '"Eu serei o Rei dos Piratas!"' },
       ],
     },
     {

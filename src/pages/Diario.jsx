@@ -1,19 +1,8 @@
 import { useEffect, useState } from 'react';
-import {
-  BookOpen, ChevronLeft, ChevronRight,
-  Crown, Sparkles, Bandage, Wine, Quote, Shield, Orbit, Flame, Shirt, Swords, Feather, Brush,
-  Sword, Wand2, Palette, Compass, Citrus, Banknote, Target, Drama, Star, Flag, Cigarette,
-  Heart, Footprints,
-} from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { queryAniList, SEARCH_CHARACTERS } from '../lib/anilist';
 import { DIARY_ANIME_LIST, CHARACTER_DIARIES } from '../data/characterDiaries';
 import { useTitle } from '../hooks/useTitle';
-
-const ARTIFACT_ICONS = {
-  Crown, Sparkles, Bandage, Wine, Quote, Shield, Orbit, Flame, Shirt, Swords, Feather, Brush,
-  Sword, Wand2, Palette, Compass, Citrus, Banknote, Target, Drama, Star, Flag, Cigarette,
-  Heart, Footprints,
-};
 
 /*
  * Não guardamos ID nem foto fixa por personagem — só o nome exato pra
@@ -63,21 +52,42 @@ function rotationFor(label, spread = 8) {
  *    disputar espaço na borda do card.
  */
 const ARTIFACT_SLOTS = [
-  { area: 'photo', variant: 'doodle',  style: { top: '20%', left: -30 } },
-  { area: 'card',  variant: 'sticker', style: { top: -14, left: '4%' } },
-  { area: 'card',  variant: 'tag',     style: { top: -24, right: '4%' } },
-  { area: 'photo', variant: 'doodle',  style: { bottom: -14, left: -8 } },
-  { area: 'photo', variant: 'sticker', style: { top: '42%', right: -24 } },
-  { area: 'photo', variant: 'tag',     style: { bottom: -14, right: -22 } },
+  { area: 'photo', variant: 'doodle',  style: { top: '38%', left: -32 } },
+  { area: 'card',  variant: 'sticker', style: { top: -30, left: '4%' } },
+  { area: 'card',  variant: 'tag',     style: { top: -46, right: '2%' } },
+  { area: 'photo', variant: 'doodle',  style: { bottom: -14, left: -10 } },
+  { area: 'photo', variant: 'sticker', style: { top: '22%', right: -28 } },
+  { area: 'photo', variant: 'tag',     style: { bottom: -22, right: -26 } },
   { area: 'card',  variant: 'note',    style: { bottom: -10, left: '50%' }, center: true },
 ];
 const NON_QUOTE_SLOT_ORDER = [0, 1, 2, 3, 4, 5];
 
-/** Um "artefato" solto — adesivo redondo, etiqueta de papel ou rabisco a
- * lápis, dependendo do slot. Nunca em fluxo normal: sempre grudado numa
- * das bordas fixas acima, por isso é seguro em qualquer largura. */
+/*
+ * Recorte de foto real do material de origem (wiki oficial do anime),
+ * nunca ícone de biblioteca nem texto/chip — só o `variant` do slot
+ * muda o FORMATO do recorte (redondo, "rasgado", retângulo com borda
+ * irregular), pra dar variedade sem inventar nada. Enquanto a imagem
+ * não foi enviada (ver public/artifacts/<anime>/), ou se o arquivo
+ * falhar ao carregar, mostra um cartão "aguardando foto" — nunca um
+ * ícone genérico no lugar, isso é estado de obra em andamento, não
+ * design final.
+ */
+const CUTOUT_SIZE = {
+  doodle: 'h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]',
+  sticker: 'h-24 w-24 sm:h-28 sm:w-28',
+  tag: 'h-20 w-28 sm:h-24 sm:w-32',
+};
+const CUTOUT_SHAPE_CLASS = {
+  doodle: 'diary-cutout-round',
+  sticker: 'diary-cutout-torn',
+  tag: 'diary-cutout-tag',
+};
+
+/** Um "artefato" solto — foto real recortada, presa numa das bordas
+ * fixas do caderno (ver ARTIFACT_SLOTS). A frase de efeito (`icon:
+ * 'Quote'`) é a única exceção: é texto por natureza, vira a "notinha". */
 function ArtifactMark({ artifact, slot }) {
-  const Icon = ARTIFACT_ICONS[artifact.icon] || Sparkles;
+  const [broken, setBroken] = useState(false);
   const rotate = rotationFor(artifact.label, slot.variant === 'note' ? 4 : 8);
   const transform = [slot.center ? 'translateX(-50%)' : null, `rotate(${rotate}deg)`].filter(Boolean).join(' ');
 
@@ -93,30 +103,28 @@ function ArtifactMark({ artifact, slot }) {
     );
   }
 
-  if (slot.variant === 'doodle') {
+  const shapeClass = `absolute z-10 ${CUTOUT_SIZE[slot.variant]} ${CUTOUT_SHAPE_CLASS[slot.variant]}`;
+
+  if (!artifact.image || broken) {
     return (
       <div
-        className="diary-artifact-doodle absolute z-10 flex h-14 w-14 items-center justify-center sm:h-16 sm:w-16"
+        className={`diary-artifact-pending flex items-center justify-center p-1.5 text-center text-[9px] leading-tight text-[#8a7b5c] ${shapeClass}`}
         style={{ ...slot.style, transform }}
-        title={artifact.label}
-        aria-label={artifact.label}
+        title={`Aguardando foto: ${artifact.label}`}
       >
-        <Icon size={22} strokeWidth={1.4} />
+        aguardando foto
       </div>
     );
   }
 
-  const isSticker = slot.variant === 'sticker';
   return (
-    <div
-      className={`absolute z-10 flex flex-col items-center gap-1 text-center text-[10px] leading-tight ${
-        isSticker ? 'diary-artifact-sticker h-20 w-20 justify-center rounded-full p-2' : 'diary-artifact-tag w-28 gap-1.5 p-2.5 pt-3'
-      }`}
-      style={{ ...slot.style, transform }}
-      title={artifact.label}
-    >
-      <Icon size={16} strokeWidth={1.6} className="shrink-0 text-[#6b5a42]" />
-      <span className="line-clamp-2">{artifact.label}</span>
+    <div className={shapeClass} style={{ ...slot.style, transform }} title={artifact.label}>
+      <img
+        src={`/artifacts/${artifact.image}`}
+        alt={artifact.label}
+        onError={() => setBroken(true)}
+        className="h-full w-full object-cover"
+      />
     </div>
   );
 }
