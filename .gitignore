@@ -17,8 +17,15 @@ dist-ssr
 .env.*
 !.env.example
 
-# Scripts utilitários (não precisam ir ao GitHub)
-scripts/
+# Scripts utilitários ad-hoc (não precisam ir ao GitHub) — mas o
+# buscador de imagens de artefato do Diário É reusável de propósito
+# (ver scripts/fetchArtifactImages.js), então fica de fora da regra.
+# `scripts/*` (não `scripts/`) pra não bloquear as exceções `!` abaixo —
+# um padrão de diretório com barra faz o git nem olhar pra dentro dele.
+scripts/*
+!scripts/fetchArtifactImages.js
+!scripts/artifactImageManifest.js
+scripts/artifact-image-report.*.json
 
 # Editor directories and files
 .vscode/*
