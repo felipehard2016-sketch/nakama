@@ -1,267 +1,167 @@
-import { useMemo } from 'react';
-import { useTitle } from '../hooks/useTitle';
+import { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { getUserList } from '../lib/mediaList';
+import { getStreak } from '../lib/streaks';
 import {
-  checkAllAchievements, getTotalPoints,
-  ACHIEVEMENT_CATEGORIES, computeAchievementStats,
+  ACHIEVEMENT_CATEGORIES, checkAllAchievements, getTotalPoints,
+  syncUnlockedAchievements, getUnlockedAchievementIds,
 } from '../lib/achievements';
-import { Trophy, Flame, Star, Lock } from 'lucide-react';
+import { useTitle } from '../hooks/useTitle';
+import ErrorState from '../components/ui/ErrorState';
 
-/* ─── Raridade por pontos ─── */
-function getRarity(points) {
-  if (points >= 150) return { label: 'Lendário', color: '#fbbf24' };
-  if (points >= 80)  return { label: 'Épico',    color: '#a78bfa' };
-  if (points >= 40)  return { label: 'Raro',     color: '#60a5fa' };
-  return                    { label: 'Comum',    color: '#94a3b8' };
+// Cortes/molde reutilizados no badge (identidade HUD).
+const BADGE_CUT = 'polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px)';
+const ICON_CUT  = 'polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px)';
+const SEG_CUT   = 'polygon(2px 0, 100% 0, calc(100% - 2px) 100%, 0 100%)';
+const SEGMENTS  = 10;
+
+// Segmentos visuais de progresso até o desbloqueio (mesma linguagem da
+// barra de episódios do TrackingPanel) — só aparece pra quem ainda não
+// desbloqueou.
+function progressSegments(progress, total) {
+  const filled = Math.round(Math.min(progress / total, 1) * SEGMENTS);
+  return Array.from({ length: SEGMENTS }, (_, i) => i < filled ? 'on' : 'off');
 }
 
-/* ─── Card de conquista ─── */
-function AchievementCard({ achievement }) {
-  const { unlocked, progress, total, icon, title, desc, points, category } = achievement;
-  const rarity = getRarity(points);
-  const pct    = total > 0 ? Math.min(100, Math.round((progress / total) * 100)) : 0;
-  const near   = !unlocked && pct >= 50;
+/**
+ * Badge de conquista com acento dourado (reservado só pra este
+ * componente — sinaliza "raridade/evento", nunca usado como cor de
+ * interface padrão). `justUnlocked` liga a animação de unlock (~1.1s,
+ * roda uma única vez, só para quem acabou de desbloquear nesta sessão).
+ */
+function Badge({ a, justUnlocked }) {
+  const segments = !a.unlocked ? progressSegments(a.progress, a.total) : [];
 
   return (
-    <div style={{
-      background: unlocked
-        ? `linear-gradient(135deg, ${rarity.color}0d, var(--bg-card))`
-        : 'var(--bg-card)',
-      border: `1px solid ${unlocked ? `${rarity.color}40` : 'var(--border)'}`,
-      borderRadius: 16, padding: '14px 16px',
-      transition: 'border-color 0.2s, transform 0.2s',
-      opacity: unlocked ? 1 : 0.7,
-      position: 'relative', overflow: 'hidden',
-    }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = unlocked ? `${rarity.color}70` : 'rgba(255,255,255,0.15)'; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = unlocked ? `${rarity.color}40` : 'var(--border)'; }}>
-
-      {/* Glow no canto para desbloqueadas */}
-      {unlocked && (
-        <div style={{
-          position: 'absolute', top: -20, right: -20,
-          width: 80, height: 80, borderRadius: '50%',
-          background: `${rarity.color}15`, filter: 'blur(16px)',
-          pointerEvents: 'none',
-        }} />
+    <div
+      className={`relative flex flex-col items-center gap-2 overflow-hidden p-4 text-center ${justUnlocked ? 'hud-unlocking' : ''} ${
+        a.unlocked
+          ? 'border border-[rgba(251,191,36,0.35)] bg-gradient-to-br from-[rgba(251,191,36,0.1)] to-[var(--bg-card)]'
+          : 'border border-[var(--border)] bg-[var(--bg-card)] opacity-60'
+      }`}
+      style={{ clipPath: BADGE_CUT }}
+    >
+      {justUnlocked && (
+        <span
+          className="hud-burst pointer-events-none absolute inset-[-40%] z-0"
+          style={{ background: 'radial-gradient(circle, rgba(251,191,36,0.55) 0%, transparent 60%)' }}
+        />
       )}
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 10 }}>
-        <div style={{
-          width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-          background: unlocked ? `${rarity.color}18` : 'rgba(255,255,255,0.04)',
-          border: `1px solid ${unlocked ? `${rarity.color}35` : 'var(--border)'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 26,
-          filter: unlocked ? 'none' : 'grayscale(100%) opacity(0.4)',
-        }}>
-          {icon}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: unlocked ? 'var(--text)' : 'var(--text-secondary)' }}>{title}</p>
-            {!unlocked && <Lock size={11} color="var(--text-muted)" />}
-          </div>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>{desc}</p>
-        </div>
+      <div
+        className={`relative z-10 flex h-12 w-12 items-center justify-center text-2xl ${justUnlocked ? 'hud-pop' : ''}`}
+        style={{
+          clipPath: ICON_CUT,
+          background: a.unlocked ? 'rgba(251,191,36,0.14)' : 'rgba(255,255,255,0.05)',
+          border: a.unlocked ? '1px solid rgba(251,191,36,0.6)' : '1px solid var(--border)',
+        }}
+      >
+        {a.icon}
       </div>
 
-      {/* Footer: raridade + pontos + barra */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-        <span style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
-          color: rarity.color, background: `${rarity.color}15`,
-          border: `1px solid ${rarity.color}30`, borderRadius: 5, padding: '2px 7px',
-        }}>{rarity.label}</span>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-          {unlocked ? (
-            <span style={{ color: rarity.color, fontWeight: 700 }}>+{points} pts</span>
-          ) : (
-            <span>{points} pts</span>
-          )}
-        </span>
-      </div>
+      <p className="relative z-10 text-sm font-semibold text-[var(--text)]">{a.title}</p>
+      <p className="relative z-10 text-[11px] leading-snug text-[var(--text-muted)]">{a.desc}</p>
 
-      {/* Barra de progresso (só se não desbloqueada e tem progresso) */}
-      {!unlocked && total > 1 && (
-        <div style={{ marginTop: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-            <span style={{ fontSize: 10.5, color: near ? '#fbbf24' : 'var(--text-muted)' }}>
-              {near ? '🔥 Quase lá!' : 'Progresso'}
-            </span>
-            <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
-              {progress.toLocaleString()} / {total.toLocaleString()}
-            </span>
-          </div>
-          <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', width: `${pct}%`,
-              background: near ? '#fbbf24' : 'linear-gradient(90deg, var(--purple), var(--purple-light))',
-              borderRadius: 2, transition: 'width 0.6s ease',
-            }} />
-          </div>
+      {!a.unlocked && (
+        <div
+          className="relative z-10 flex w-full gap-[2px]"
+          role="progressbar"
+          aria-label={`Progresso de "${a.title}"`}
+          aria-valuemin={0}
+          aria-valuemax={a.total}
+          aria-valuenow={a.progress}
+        >
+          {segments.map((s, i) => (
+            <i
+              key={i}
+              style={{ clipPath: SEG_CUT }}
+              className={`h-1.5 flex-1 ${s === 'on' ? 'bg-gradient-to-r from-purple-light to-blue' : 'bg-white/5'}`}
+            />
+          ))}
         </div>
       )}
+
+      <span
+        className="relative z-10 font-mono text-[10px] font-bold"
+        style={{ color: a.unlocked ? '#fbbf24' : 'var(--color-purple-light)' }}
+      >
+        +{a.points} PTS
+      </span>
     </div>
   );
 }
 
-/* ─── Streak widget ─── */
-function StreakWidget({ stats }) {
-  const { currentStreak, longestStreak, streakActive } = stats;
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 20,
-      background: currentStreak > 0
-        ? 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(249,115,22,0.06))'
-        : 'var(--bg-card)',
-      border: `1px solid ${currentStreak > 0 ? 'rgba(251,191,36,0.3)' : 'var(--border)'}`,
-      borderRadius: 18, padding: '20px 28px',
-    }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 42, lineHeight: 1, marginBottom: 4 }}>
-          {streakActive ? '🔥' : currentStreak > 0 ? '🔥' : '💤'}
-        </div>
-        <p style={{ fontSize: 28, fontWeight: 900, color: currentStreak > 0 ? '#fbbf24' : 'var(--text-muted)', letterSpacing: '-0.04em', lineHeight: 1 }}>
-          {currentStreak}
-        </p>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>dias seguidos</p>
-      </div>
-      <div style={{ width: 1, height: 60, background: 'var(--border)', flexShrink: 0 }} />
-      <div>
-        <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-          {currentStreak > 0
-            ? streakActive
-              ? 'Você está em sequência! 🎯'
-              : 'Continue hoje para manter!'
-            : 'Comece uma sequência hoje'}
-        </p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-          Marque episódios ou atualize sua lista todos os dias para manter a streak.
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Flame size={13} color="#f97316" />
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Recorde: <span style={{ color: '#fbbf24', fontWeight: 700 }}>{longestStreak} dias</span>
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════
-   PÁGINA
-═══════════════════════════════════════════ */
 export default function Achievements() {
   useTitle('Conquistas');
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const [achievements, setAchievements] = useState(null);
+  const [error, setError] = useState(false);
+  // Ids desbloqueados NESTA carga da página — só eles tocam a animação
+  // de unlock; conquistas já antigas ficam com o visual dourado estático.
+  const [justUnlockedIds, setJustUnlockedIds] = useState(() => new Set());
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const achievements = useMemo(() => checkAllAchievements(), []);
-  const stats        = useMemo(() => computeAchievementStats(), []);
-  const totalPoints  = getTotalPoints(achievements);
-  const unlocked     = achievements.filter(a => a.unlocked).length;
-  const total        = achievements.length;
-  const pct          = Math.round((unlocked / total) * 100);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    setError(false);
+    (async () => {
+      try {
+        const [{ data: entries, error: listError }, streak, unlockedIds] = await Promise.all([
+          getUserList(user.id),
+          getStreak(user.id),
+          getUnlockedAchievementIds(user.id),
+        ]);
+        if (listError) throw listError;
 
-  /* Rank por pontos */
-  function getRank(pts) {
-    if (pts >= 800)  return { label: 'Otaku Supremo', color: '#fbbf24', icon: '👑' };
-    if (pts >= 500)  return { label: 'Mestre',         color: '#a78bfa', icon: '🏆' };
-    if (pts >= 250)  return { label: 'Veterano',       color: '#60a5fa', icon: '⭐' };
-    if (pts >= 100)  return { label: 'Experiente',     color: '#34d399', icon: '🌟' };
-    if (pts >= 30)   return { label: 'Iniciante',      color: '#94a3b8', icon: '🌱' };
-    return                  { label: 'Novato',         color: '#6b7280', icon: '🌀' };
+        const checked = checkAllAchievements(entries || [], streak);
+        const newly = await syncUnlockedAchievements(user.id, checked, unlockedIds);
+        newly.forEach(a => showToast(`Conquista desbloqueada: ${a.title} 🎉`, 'success'));
+
+        if (cancelled) return;
+        setJustUnlockedIds(new Set(newly.map(a => a.id)));
+        setAchievements(checked);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, reloadKey]);
+
+  if (error) {
+    return <ErrorState message="Não deu para carregar suas conquistas agora." onRetry={() => setReloadKey(k => k + 1)} />;
   }
-  const rank = getRank(totalPoints);
+
+  if (!achievements) {
+    return <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple/25 border-t-purple" />
+    </div>;
+  }
+
+  const unlockedCount = achievements.filter(a => a.unlocked).length;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-
-      {/* ── HEADER ── */}
-      <div style={{
-        padding: '36px 24px 32px',
-        background: 'linear-gradient(180deg, rgba(251,191,36,0.07) 0%, transparent 100%)',
-        borderBottom: '1px solid var(--border)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Trophy size={24} color="#fbbf24" /> Conquistas
-            </h1>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              {unlocked} de {total} desbloqueadas · {pct}% completo
-            </p>
-          </div>
-
-          {/* Rank card */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            background: `linear-gradient(135deg, ${rank.color}12, transparent)`,
-            border: `1px solid ${rank.color}30`, borderRadius: 14, padding: '14px 20px',
-          }}>
-            <span style={{ fontSize: 28 }}>{rank.icon}</span>
-            <div>
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>Rank</p>
-              <p style={{ fontSize: 16, fontWeight: 800, color: rank.color }}>{rank.label}</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                <Star size={11} fill="#fbbf24" color="#fbbf24" />
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>{totalPoints} pts</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Barra de progresso geral */}
-        <div style={{ marginTop: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Progresso geral</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--purple-light)' }}>{pct}%</span>
-          </div>
-          <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', maxWidth: 400 }}>
-            <div style={{
-              height: '100%', width: `${pct}%`,
-              background: 'linear-gradient(90deg, var(--purple), #f472b6)',
-              borderRadius: 3, transition: 'width 0.8s ease',
-              boxShadow: '0 0 10px rgba(124,58,237,0.5)',
-            }} />
-          </div>
-        </div>
+    <div className="mx-auto flex max-w-5xl flex-col gap-8">
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--text)]">Conquistas</h1>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          {unlockedCount}/{achievements.length} desbloqueadas · {getTotalPoints(achievements)} pontos
+        </p>
       </div>
 
-      <div style={{ padding: '32px 24px 60px', display: 'flex', flexDirection: 'column', gap: 40 }}>
-
-        {/* ── STREAK ── */}
-        <section>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <Flame size={16} color="#f97316" />
-            <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Sequência Diária</h2>
+      {ACHIEVEMENT_CATEGORIES.map(cat => (
+        <section key={cat}>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">{cat}</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {achievements.filter(a => a.category === cat).map(a => (
+              <Badge key={a.id} a={a} justUnlocked={justUnlockedIds.has(a.id)} />
+            ))}
           </div>
-          <StreakWidget stats={stats} />
         </section>
-
-        {/* ── CONQUISTAS POR CATEGORIA ── */}
-        {ACHIEVEMENT_CATEGORIES.map(cat => {
-          const catAchievements = achievements.filter(a => a.category === cat);
-          if (!catAchievements.length) return null;
-          const catUnlocked = catAchievements.filter(a => a.unlocked).length;
-          return (
-            <section key={cat}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{cat}</h2>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--purple-light)', background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 10, padding: '1px 8px' }}>
-                  {catUnlocked}/{catAchievements.length}
-                </span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                {catAchievements
-                  .sort((a, b) => (b.unlocked ? 1 : 0) - (a.unlocked ? 1 : 0) || a.points - b.points)
-                  .map(a => <AchievementCard key={a.id} achievement={a} />)}
-              </div>
-            </section>
-          );
-        })}
-
-      </div>
+      ))}
     </div>
   );
 }

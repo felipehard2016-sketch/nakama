@@ -1,108 +1,65 @@
-import { useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { lazy } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
-import { MarathonProvider } from './context/MarathonContext';
-import Layout from './components/layout/Layout';
+import { SidebarProvider } from './context/SidebarContext';
 import ErrorBoundary from './components/ErrorBoundary';
-import Home   from './pages/Home';
-import Search from './pages/Search';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import Layout from './components/layout/Layout';
+import Home from './pages/Home';
+import Login from './pages/Login';
 
-function lazyWithRetry(factory) {
-  return lazy(() =>
-    factory().catch(err => {
-      console.warn('[Nakama] Chunk falhou, tentando novamente…', err?.message);
-      return factory();
-    })
-  );
-}
-
-const AnimeDetail     = lazyWithRetry(() => import('./pages/AnimeDetail'));
-const CharacterDetail = lazyWithRetry(() => import('./pages/CharacterDetail'));
-const MyList          = lazyWithRetry(() => import('./pages/MyList'));
-const Favorites       = lazyWithRetry(() => import('./pages/Favorites'));
-const Stats           = lazyWithRetry(() => import('./pages/Stats'));
-const Calendar        = lazyWithRetry(() => import('./pages/Calendar'));
-const Profile         = lazyWithRetry(() => import('./pages/Profile'));
-const Discover        = lazyWithRetry(() => import('./pages/Discover'));
-const StudioPage      = lazyWithRetry(() => import('./pages/StudioPage'));
-const Wrapped         = lazyWithRetry(() => import('./pages/Wrapped'));
-const Achievements    = lazyWithRetry(() => import('./pages/Achievements'));
-const Rankings        = lazyWithRetry(() => import('./pages/Rankings'));
-const Lists           = lazyWithRetry(() => import('./pages/Lists'));
-
-function PageLoader() {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '60vh', flexDirection: 'column', gap: 14,
-    }}>
-      <div style={{
-        width: 40, height: 40,
-        border: '3px solid rgba(124,58,237,0.2)',
-        borderTop: '3px solid var(--purple)',
-        borderRadius: '50%',
-        animation: 'spin 0.7s linear infinite',
-      }} />
-      <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Carregando…</p>
-    </div>
-  );
-}
-
-function KeyboardShortcuts() {
-  const navigate = useNavigate();
-  useEffect(() => {
-    const handler = e => {
-      if (e.key === '/' && !e.target.matches('input,textarea,[contenteditable]') && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        navigate('/search');
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [navigate]);
-  return null;
-}
-
-function RouteErrorBoundary({ children }) {
-  return (
-    <ErrorBoundary key={children?.type?.displayName || Math.random()}>
-      {children}
-    </ErrorBoundary>
-  );
-}
+/*
+ * Code-splitting por rota: só Home e Login (as duas telas mais
+ * prováveis de ser a primeira que alguém vê) entram no bundle inicial.
+ * O resto carrega sob demanda, um chunk por página — o Suspense que
+ * mostra o spinner enquanto isso baixa fica em Layout.jsx, dentro do
+ * <main>, pra sidebar/tab bar nunca sumirem durante a troca de rota.
+ */
+const Search           = lazy(() => import('./pages/Search'));
+const AnimeDetail      = lazy(() => import('./pages/AnimeDetail'));
+const CharacterDetail  = lazy(() => import('./pages/CharacterDetail'));
+const MyList           = lazy(() => import('./pages/MyList'));
+const Stats            = lazy(() => import('./pages/Stats'));
+const Calendar         = lazy(() => import('./pages/Calendar'));
+const Achievements     = lazy(() => import('./pages/Achievements'));
+const CharacterCompare = lazy(() => import('./pages/CharacterCompare'));
+const Profile          = lazy(() => import('./pages/Profile'));
+const Wrapped          = lazy(() => import('./pages/Wrapped'));
+const Games            = lazy(() => import('./pages/Games'));
+const Builds           = lazy(() => import('./pages/Builds'));
+const PublicProfile    = lazy(() => import('./pages/PublicProfile'));
+const Diario           = lazy(() => import('./pages/Diario'));
 
 export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
         <ToastProvider>
-          <MarathonProvider>
+          <SidebarProvider>
             <BrowserRouter>
-              <KeyboardShortcuts />
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/" element={<Layout />}>
-                    <Route index                element={<Home />} />
-                    <Route path="search"        element={<Search />} />
-                    <Route path="anime/:id"     element={<RouteErrorBoundary><AnimeDetail /></RouteErrorBoundary>} />
-                    <Route path="character/:id" element={<RouteErrorBoundary><CharacterDetail /></RouteErrorBoundary>} />
-                    <Route path="calendar"      element={<RouteErrorBoundary><Calendar /></RouteErrorBoundary>} />
-                    <Route path="discover"      element={<RouteErrorBoundary><Discover /></RouteErrorBoundary>} />
-                    <Route path="studio/:id"    element={<RouteErrorBoundary><StudioPage /></RouteErrorBoundary>} />
-                    <Route path="wrapped"       element={<RouteErrorBoundary><Wrapped /></RouteErrorBoundary>} />
-                    <Route path="achievements"  element={<RouteErrorBoundary><Achievements /></RouteErrorBoundary>} />
-                    <Route path="rankings"      element={<RouteErrorBoundary><Rankings /></RouteErrorBoundary>} />
-                    <Route path="lists"         element={<RouteErrorBoundary><Lists /></RouteErrorBoundary>} />
-                    <Route path="my-list"       element={<RouteErrorBoundary><MyList /></RouteErrorBoundary>} />
-                    <Route path="favorites"     element={<RouteErrorBoundary><Favorites /></RouteErrorBoundary>} />
-                    <Route path="stats"         element={<RouteErrorBoundary><Stats /></RouteErrorBoundary>} />
-                    <Route path="profile"       element={<RouteErrorBoundary><Profile /></RouteErrorBoundary>} />
-                  </Route>
-                </Routes>
-              </Suspense>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Home />} />
+                  <Route path="login" element={<Login />} />
+                  <Route path="buscar" element={<Search />} />
+                  <Route path="anime/:id" element={<AnimeDetail />} />
+                  <Route path="personagem/:id" element={<CharacterDetail />} />
+                  <Route path="comparador" element={<CharacterCompare />} />
+                  <Route path="diario" element={<Diario />} />
+                  <Route path="minha-lista" element={<ProtectedRoute><MyList /></ProtectedRoute>} />
+                  <Route path="stats" element={<ProtectedRoute><Stats /></ProtectedRoute>} />
+                  <Route path="calendario" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+                  <Route path="conquistas" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+                  <Route path="wrapped" element={<ProtectedRoute><Wrapped /></ProtectedRoute>} />
+                  <Route path="jogos" element={<ProtectedRoute><Games /></ProtectedRoute>} />
+                  <Route path="builds" element={<ProtectedRoute><Builds /></ProtectedRoute>} />
+                  <Route path="perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                  <Route path="u/:username" element={<PublicProfile />} />
+                </Route>
+              </Routes>
             </BrowserRouter>
-          </MarathonProvider>
+          </SidebarProvider>
         </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>

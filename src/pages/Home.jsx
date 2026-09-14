@@ -1,483 +1,267 @@
-import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { queryAniList, HOME_BATCH_QUERY } from '../lib/anilist';
-import { getUserTopGenres, fetchRecommendationsByGenre } from '../lib/recommendations';
-import { getByListStatus } from '../lib/storage';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Play, Flame, Plus } from 'lucide-react';
+import { queryAniList, HOME_BATCH_QUERY, HOME_GENRE_ROWS_QUERY, RECOMMENDATION_QUERY } from '../lib/anilist';
+import { preferredTitle, upsertListEntry } from '../lib/mediaList';
+import { cleanAniListText } from '../lib/format';
+import { computeTopGenres, excludeTracked } from '../lib/recommendations';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { useQuickList } from '../hooks/useQuickList';
+import MediaRow from '../components/ui/MediaRow';
+import { FRAME_CLIP } from '../components/ui/MediaCard';
+import ErrorState from '../components/ui/ErrorState';
+import LazyImg from '../components/ui/LazyImg';
 import { useTitle } from '../hooks/useTitle';
-import { ChevronLeft, ChevronRight, Info, Star, Flame, Tv, Sparkles, Play } from 'lucide-react';
 
-function getCurrentSeason() {
-  const m = new Date().getMonth() + 1;
-  if (m <= 3) return 'WINTER';
-  if (m <= 6) return 'SPRING';
-  if (m <= 9) return 'SUMMER';
-  return 'FALL';
+// chave da query HOME_GENRE_ROWS_QUERY, rótulo em PT-BR, nome exato do
+// gênero na AniList (pro link "Ver tudo" cair já filtrado na Busca).
+const GENRE_LABELS = [
+  ['action', 'Ação', 'Action'],
+  ['romance', 'Romance', 'Romance'],
+  ['comedy', 'Comédia', 'Comedy'],
+  ['fantasy', 'Fantasia', 'Fantasy'],
+  ['drama', 'Drama', 'Drama'],
+  ['sliceOfLife', 'Slice of Life', 'Slice of Life'],
+];
+
+const STEP_CUT = 'polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)';
+
+function currentSeason() {
+  const month = new Date().getMonth() + 1;
+  const year = new Date().getFullYear();
+  const season = month <= 3 ? 'WINTER' : month <= 6 ? 'SPRING' : month <= 9 ? 'SUMMER' : 'FALL';
+  return { season, year };
 }
 
-/* ─── Netflix-style card ─── */
-function NCard({ media }) {
-  const navigate = useNavigate();
-  const title = media.title?.english || media.title?.romaji || '';
-  const score = media.averageScore ? (media.averageScore / 10).toFixed(1) : null;
-  const cover = media.coverImage?.extraLarge || media.coverImage?.large;
-
+function HeroBanner({ media }) {
+  if (!media) {
+    return <div className="-mx-4 aspect-[16/9] w-[calc(100%+2rem)] animate-pulse rounded-b-2xl bg-[var(--bg-card)] sm:-mx-6 sm:aspect-[16/6] sm:w-[calc(100%+3rem)] lg:-mx-8 lg:w-[calc(100%+4rem)] lg:rounded-2xl" />;
+  }
+  const title = preferredTitle(media.title);
   return (
-    <div
-      onClick={() => navigate(`/anime/${media.id}`)}
-      className="ncard"
-      style={{
-        width: 160, flexShrink: 0,
-        cursor: 'pointer',
-        scrollSnapAlign: 'start',
-        transition: 'transform 0.2s',
-      }}
-      onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-      onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-    >
-      {/* Capa */}
-      <div style={{ position: 'relative', width: 160, height: 240, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-        {cover ? (
-          <img
-            src={cover}
-            alt={title}
-            loading="lazy"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        ) : (
-          <div style={{ width: '100%', height: '100%', background: 'var(--bg-card)' }} />
-        )}
-        {score && (
-          <div style={{
-            position: 'absolute', top: 6, right: 6,
-            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
-            borderRadius: 5, padding: '2px 6px',
-            display: 'flex', alignItems: 'center', gap: 3,
-            fontSize: 11, fontWeight: 700, color: '#fbbf24',
-          }}>
-            <Star size={9} fill="#fbbf24" color="#fbbf24" /> {score}
-          </div>
-        )}
+    <div className="relative -mx-4 w-[calc(100%+2rem)] overflow-hidden rounded-b-2xl sm:-mx-6 sm:w-[calc(100%+3rem)] lg:-mx-8 lg:w-[calc(100%+4rem)] lg:rounded-2xl">
+      <div className="aspect-[16/9] w-full sm:aspect-[16/6]">
+        <img src={media.bannerImage || media.coverImage?.extraLarge} alt="" className="h-full w-full object-cover" />
       </div>
-      {/* Título abaixo da capa */}
-      <p style={{
-        marginTop: 8, fontSize: 12.5, fontWeight: 600,
-        color: 'var(--text)', lineHeight: 1.35,
-        overflow: 'hidden', textOverflow: 'ellipsis',
-        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-      }}>
-        {title}
-      </p>
-    </div>
-  );
-}
+      <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/50 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg)]/70 via-transparent to-transparent" />
 
-/* ─── Card "Continuar assistindo" (com progresso) ─── */
-function ContinueCard({ item }) {
-  const navigate = useNavigate();
-  const title = item.title?.english || item.title?.romaji || '';
-  const cover = item.coverImage?.extraLarge || item.coverImage?.large;
-  const isAnime = !['MANGA', 'NOVEL', 'ONE_SHOT'].includes(item.format);
-  const total = isAnime ? item.episodes : item.chapters;
-  const pct = total ? Math.min(100, Math.round((item.progress / total) * 100)) : 0;
-
-  return (
-    <div
-      onClick={() => navigate(`/anime/${item.id}`)}
-      style={{
-        width: 160, flexShrink: 0,
-        cursor: 'pointer',
-        scrollSnapAlign: 'start',
-        transition: 'transform 0.2s',
-      }}
-      onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-      onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-    >
-      <div style={{ position: 'relative', width: 160, height: 240, borderRadius: 10, overflow: 'hidden' }}>
-        {cover ? (
-          <img src={cover} alt={title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', background: 'var(--bg-card)' }} />
-        )}
-        {/* Gradiente no rodapé da capa */}
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%',
-          background: 'linear-gradient(to top, rgba(10,10,15,0.9), transparent)',
-          pointerEvents: 'none',
-        }} />
-        {/* Barra de progresso na base da capa */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: 'rgba(255,255,255,0.15)' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: 'var(--purple)', transition: 'width 0.3s' }} />
-        </div>
-        {/* Ícone play no hover */}
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,0,0.3)', opacity: 0,
-          transition: 'opacity 0.2s',
-        }}
-          onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={e => e.currentTarget.style.opacity = '0'}
-        >
-          <div style={{
-            width: 44, height: 44, borderRadius: '50%',
-            background: 'rgba(124,58,237,0.85)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Play size={18} fill="#fff" color="#fff" style={{ marginLeft: 2 }} />
-          </div>
-        </div>
-        {/* ep info */}
-        <div style={{ position: 'absolute', bottom: 8, left: 8, fontSize: 10.5, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-          {item.progress}/{total || '?'} {isAnime ? 'eps' : 'caps'}
-        </div>
-      </div>
-      <p style={{
-        marginTop: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--text)',
-        lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis',
-        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-      }}>
-        {title}
-      </p>
-    </div>
-  );
-}
-
-/* ─── Carrossel estilo Netflix ─── */
-function Carousel({ title, icon: Icon, children, count }) {
-  const trackRef = useRef(null);
-  const scroll = dir => trackRef.current?.scrollBy({ left: dir * 600, behavior: 'smooth' });
-
-  if (!count) return null;
-
-  return (
-    <section style={{ marginBottom: 44 }}>
-      {/* Header da seção */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 24px', marginBottom: 14,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon size={16} color="var(--purple-light)" strokeWidth={2} />
-          <h2 style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</h2>
-        </div>
-        <div style={{ display: 'flex', gap: 5 }}>
-          {[ChevronLeft, ChevronRight].map((Btn, i) => (
-            <button
-              key={i}
-              onClick={() => scroll(i === 0 ? -1 : 1)}
-              style={{
-                width: 30, height: 30, borderRadius: 8,
-                background: 'var(--bg-card)', border: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--text-secondary)', transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,58,237,0.2)'; e.currentTarget.style.borderColor = 'var(--purple)'; e.currentTarget.style.color = '#fff'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-            >
-              <Btn size={13} />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Track */}
-      <div
-        ref={trackRef}
-        style={{
-          display: 'flex',
-          gap: 12,
-          overflowX: 'auto',
-          paddingInline: '24px',
-          paddingBottom: 12,
-          scrollbarWidth: 'none',
-          scrollSnapType: 'x mandatory',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {children}
-      </div>
-    </section>
-  );
-}
-
-/* ─── Skeleton ─── */
-function SkeletonHero() {
-  return (
-    <div className="skeleton" style={{ height: 320, width: '100%', borderRadius: 0 }} />
-  );
-}
-
-function SkeletonCarousel() {
-  return (
-    <section style={{ marginBottom: 44 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 24px', marginBottom: 14 }}>
-        <div className="skeleton" style={{ width: 16, height: 16, borderRadius: 4 }} />
-        <div className="skeleton" style={{ width: 140, height: 18, borderRadius: 6 }} />
-      </div>
-      <div style={{ display: 'flex', gap: 12, paddingInline: '24px', overflow: 'hidden' }}>
-        {Array.from({ length: 7 }).map((_, i) => (
-          <div key={i} style={{ flexShrink: 0 }}>
-            <div className="skeleton" style={{ width: 160, height: 240, borderRadius: 10 }} />
-            <div className="skeleton" style={{ width: 120, height: 14, borderRadius: 4, marginTop: 8 }} />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ─── Hero (banner principal) ─── */
-function Hero({ media }) {
-  const navigate = useNavigate();
-  const [idx, setIdx] = useState(0);
-  const items = media.slice(0, 5);
-  const current = items[idx];
-
-  useEffect(() => {
-    if (!items.length) return;
-    const t = setInterval(() => setIdx(i => (i + 1) % items.length), 7000);
-    return () => clearInterval(t);
-  }, [items.length]);
-
-  if (!current) return null;
-
-  const title = current.title?.english || current.title?.romaji || '';
-  const score = current.averageScore ? (current.averageScore / 10).toFixed(1) : null;
-
-  return (
-    <div style={{ position: 'relative', height: 320, overflow: 'hidden', marginBottom: 36 }}>
-      {/* Imagem de fundo */}
-      <div
-        key={current.id}
-        style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: `url(${current.bannerImage || current.coverImage?.extraLarge})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center top',
-          animation: 'fadeIn 0.7s ease',
-        }}
-      />
-
-      {/* Gradientes: lateral + inferior */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: 'linear-gradient(to right, rgba(10,10,15,0.92) 35%, rgba(10,10,15,0.3) 70%, transparent 100%)',
-      }} />
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: 'linear-gradient(to top, rgba(10,10,15,1) 0%, rgba(10,10,15,0.4) 40%, transparent 75%)',
-      }} />
-
-      {/* Conteúdo */}
-      <div style={{
-        position: 'absolute', inset: 0, zIndex: 2,
-        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-        padding: '0 32px 24px',
-      }}>
-        {/* Badges */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center' }}>
-          <span style={{
-            background: 'linear-gradient(90deg, var(--purple), #4f46e5)',
-            borderRadius: 20, padding: '2px 10px',
-            fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', color: '#fff',
-          }}>EM DESTAQUE</span>
-          {current.format && (
-            <span style={{
-              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: 20, padding: '2px 8px', fontSize: 10, color: 'rgba(255,255,255,0.7)',
-            }}>{current.format}</span>
-          )}
-          {current.seasonYear && (
-            <span style={{
-              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: 20, padding: '2px 8px', fontSize: 10, color: 'rgba(255,255,255,0.7)',
-            }}>{current.seasonYear}</span>
-          )}
-        </div>
-
-        {/* Título */}
-        <h1 style={{
-          fontSize: 28, fontWeight: 900, lineHeight: 1.15,
-          letterSpacing: '-0.02em', maxWidth: 480, marginBottom: 8,
-          textShadow: '0 2px 12px rgba(0,0,0,0.6)',
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-        }}>
+      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2.5 p-5 sm:max-w-lg sm:p-8">
+        <span className="flex w-fit items-center gap-1 rounded bg-gradient-to-r from-purple to-blue px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+          <Flame size={11} /> Em alta agora
+        </span>
+        <h1 className="text-2xl font-black italic leading-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)] sm:text-4xl">
           {title}
         </h1>
-
-        {/* Score + genres */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-          {score && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#fbbf24', fontWeight: 700, fontSize: 13 }}>
-              <Star size={13} fill="#fbbf24" /> {score}
-            </div>
-          )}
-          {current.episodes && (
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>{current.episodes} eps</span>
-          )}
-          {current.genres?.slice(0, 3).map(g => (
-            <span key={g} style={{
-              background: 'rgba(124,58,237,0.22)', border: '1px solid rgba(124,58,237,0.4)',
-              borderRadius: 20, padding: '2px 9px', fontSize: 11, color: 'var(--purple-light)',
-            }}>{g}</span>
+        <div className="flex flex-wrap gap-1.5">
+          {media.genres?.slice(0, 3).map(g => (
+            <span key={g} className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] text-white/90 backdrop-blur-sm">{g}</span>
           ))}
         </div>
-
-        {/* Botão */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            onClick={() => navigate(`/anime/${current.id}`)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'linear-gradient(90deg, var(--purple), #4f46e5)',
-              color: '#fff', borderRadius: 9, padding: '9px 20px',
-              fontSize: 13, fontWeight: 700,
-              boxShadow: '0 4px 16px rgba(124,58,237,0.45)',
-              transition: 'opacity 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-          >
-            <Info size={14} /> Ver Detalhes
-          </button>
-
-          {/* Dots */}
-          <div style={{ display: 'flex', gap: 5 }}>
-            {items.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setIdx(i)}
-                style={{
-                  width: i === idx ? 20 : 6, height: 6,
-                  borderRadius: 3, border: 'none', padding: 0,
-                  background: i === idx ? 'var(--purple)' : 'rgba(255,255,255,0.25)',
-                  transition: 'all 0.3s',
-                }}
-              />
-            ))}
-          </div>
-        </div>
+        <p className="line-clamp-2 text-xs text-white/70 sm:text-sm">{cleanAniListText(media.description)}</p>
+        <Link
+          to={`/anime/${media.id}`}
+          className="mt-1 flex w-fit items-center gap-2 rounded-lg bg-white px-5 py-2 text-sm font-bold text-black transition-transform hover:scale-105"
+        >
+          <Play size={15} className="fill-black" /> Ver detalhes
+        </Link>
       </div>
     </div>
   );
 }
 
-/* ─── API offline banner ─── */
-function ApiOfflineBanner() {
+/**
+ * Card de "continuar assistindo": diferente do MediaCard comum porque
+ * o ponto principal aqui não é descobrir algo novo, é ver onde parou e
+ * avançar — por isso mostra "EP progresso/total" e um botão de +1 de
+ * episódio direto ali, sem precisar abrir o detalhe.
+ */
+function ContinueWatchingCard({ entry, onAdvance, advancing }) {
+  const m = entry.media_items;
+  const total = m.metadata?.episodes;
+  const atMax = total != null && entry.progress >= total;
+
   return (
-    <div style={{
-      margin: '0 24px 28px',
-      background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)',
-      borderRadius: 12, padding: '14px 18px',
-      display: 'flex', alignItems: 'center', gap: 12,
-    }}>
-      <span style={{ fontSize: 18 }}>⚠️</span>
-      <div style={{ flex: 1 }}>
-        <p style={{ fontSize: 13, fontWeight: 600, color: '#fbbf24' }}>AniList API temporariamente indisponível</p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-          Os servidores da AniList estão instáveis. As seções voltarão quando a API se recuperar.
+    <div className="flex flex-col gap-2" style={{ width: '9rem' }}>
+      <Link to={`/anime/${m.external_id}`} className="group block">
+        <div
+          className="relative aspect-[2/3] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-card)] transition-[filter,transform] duration-200 group-hover:-translate-y-1 group-hover:[filter:drop-shadow(0_0_14px_var(--purple-glow))]"
+          style={{ clipPath: FRAME_CLIP }}
+        >
+          <LazyImg src={m.cover_url} alt={m.title} style={{ width: '100%', height: '100%' }} />
+        </div>
+        <p className="mt-2 line-clamp-1 text-[13px] font-medium leading-snug text-[var(--text)] group-hover:text-purple-light">
+          {m.title}
         </p>
+      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[11px] font-bold text-[var(--text)]">
+          EP {entry.progress}{total ? ` / ${total}` : ''}
+        </span>
+        <button
+          onClick={onAdvance}
+          disabled={advancing || atMax}
+          aria-label="Avançar 1 episódio"
+          style={{ clipPath: STEP_CUT }}
+          className="flex h-6 w-6 items-center justify-center border border-[var(--border)] bg-[var(--bg-card)] text-purple-light transition-[filter] hover:[filter:drop-shadow(0_0_8px_var(--purple-glow))] disabled:opacity-30"
+        >
+          <Plus size={12} />
+        </button>
       </div>
-      <button
-        onClick={() => window.location.reload()}
-        style={{
-          flexShrink: 0,
-          background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)',
-          borderRadius: 8, padding: '6px 12px',
-          color: '#fbbf24', fontSize: 12, fontWeight: 600,
-        }}
-      >Recarregar</button>
     </div>
   );
 }
 
-/* ════════════════════════════════════════
-   HOME
-════════════════════════════════════════ */
 export default function Home() {
   useTitle('Home');
-  const [trending, setTrending] = useState([]);
-  const [seasonal, setSeasonal] = useState([]);
-  const [recItems, setRecItems] = useState([]);
-  const [recGenre, setRecGenre] = useState('');
-  const [watching, setWatching] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [apiError, setApiError] = useState(false);
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const { listMap, listLoaded, applyListChange } = useQuickList(user?.id);
 
-  const topGenres = getUserTopGenres(3);
-  const hasRecs   = topGenres.length > 0;
+  const [homeData, setHomeData] = useState(null);
+  const [homeError, setHomeError] = useState(false);
+  const [genreRows, setGenreRows] = useState(null);
+  const [recommended, setRecommended] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [advancingId, setAdvancingId] = useState(null);
+
+  // Espelha `listMap` num ref, atualizado em efeito (nunca direto no
+  // corpo do render) — só pra o efeito de recomendação abaixo poder ler
+  // o valor mais recente sem precisar re-rodar toda vez que o mapa muda.
+  const listMapRef = useRef(listMap);
+  useEffect(() => { listMapRef.current = listMap; }, [listMap]);
+
+  // Recomendação simples: gêneros favoritos calculados uma vez, quando a
+  // lista termina de carregar — não a cada mudança dela (senão cada
+  // clique no botão de status do card dispararia uma busca nova na
+  // AniList). Sem lista/gênero suficiente (não logado, lista vazia),
+  // `recommended` fica [] e a fileira simplesmente não aparece.
+  useEffect(() => {
+    if (!listLoaded) return;
+    const topGenres = computeTopGenres([...listMapRef.current.values()], 3);
+    if (topGenres.length === 0) { setRecommended([]); return; }
+
+    queryAniList(RECOMMENDATION_QUERY, { genres: topGenres, page: 1, perPage: 20 })
+      .then(data => {
+        const trackedIds = new Set(listMapRef.current.keys());
+        setRecommended(excludeTracked(data.Page.media, trackedIds).slice(0, 15));
+      })
+      .catch(() => setRecommended([]));
+  }, [listLoaded]);
 
   useEffect(() => {
-    /* "Continuar assistindo" vem do localStorage — síncrono */
-    setWatching(getByListStatus('WATCHING'));
+    setHomeError(false);
+    const { season, year } = currentSeason();
+    // HOME_BATCH_QUERY é o conteúdo principal da Home (hero + top 10 +
+    // trending + mangás) — se falhar, mostra erro de verdade em vez de
+    // só deixar a tela vazia pra sempre.
+    queryAniList(HOME_BATCH_QUERY, { season, year })
+      .then(setHomeData)
+      .catch(() => setHomeError(true));
+    // As fileiras por gênero são conteúdo complementar: se falharem,
+    // a Home continua útil sem elas — só não mostra essas fileiras.
+    queryAniList(HOME_GENRE_ROWS_QUERY, {})
+      .then(setGenreRows)
+      .catch(() => setGenreRows({}));
+  }, [reloadKey]);
 
-    const year   = new Date().getFullYear();
-    const season = getCurrentSeason();
-    const genre  = topGenres[0] || '';
-    if (genre) setRecGenre(genre);
+  // "Continuar assistindo" vem do mesmo mapa usado pelo botão de
+  // adicionar/status dos cards (useQuickList) — antes disso, a Home
+  // fazia uma segunda consulta só pra essa fileira.
+  const watchingEntries = [...listMap.values()]
+    .filter(e => e.status === 'watching')
+    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+    .slice(0, 15);
 
-    const homeQuery = queryAniList(HOME_BATCH_QUERY, { season, year });
-    const recQuery  = hasRecs ? fetchRecommendationsByGenre(genre, 20) : Promise.resolve([]);
+  const handleAdvance = async (entry) => {
+    const m = entry.media_items;
+    setAdvancingId(m.id);
+    const nextProgress = entry.progress + 1;
+    const { data, error } = await upsertListEntry(user.id, m.id, {
+      status: entry.status,
+      progress: nextProgress,
+      rating: entry.rating,
+      favorite: entry.favorite,
+    });
+    setAdvancingId(null);
+    if (error) { showToast('Não deu para atualizar o progresso.', 'error'); return; }
+    // upsertListEntry não devolve o media_items relacionado — sem
+    // recompor aqui, o próximo render perderia capa/título/metadata
+    // desse item no mapa (ver mesmo comentário em QuickAddControl).
+    applyListChange(m.external_id, { ...data, media_items: m });
+  };
 
-    Promise.allSettled([homeQuery, recQuery]).then(([home, rec]) => {
-      if (home.status === 'fulfilled') {
-        const d = home.value;
-        setTrending(d.trending?.media || []);
-        setSeasonal(d.seasonal?.media || []);
-      } else {
-        console.warn('[Nakama] Home batch falhou:', home.reason?.message);
-        setApiError(true);
-      }
-      if (rec.status === 'fulfilled' && Array.isArray(rec.value)) {
-        setRecItems(rec.value.slice(0, 20));
-      }
-    }).finally(() => setLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleEntryChange = (externalId, newEntry) => applyListChange(externalId, newEntry);
 
-  if (loading) {
-    return (
-      <div style={{ animation: 'fadeIn 0.3s ease' }}>
-        <SkeletonHero />
-        <div style={{ paddingTop: 8 }}>
-          <SkeletonCarousel />
-          <SkeletonCarousel />
-          <SkeletonCarousel />
-        </div>
-      </div>
-    );
-  }
+  const hero = homeData?.trending?.media?.[0];
 
   return (
-    <div style={{ animation: 'fadeIn 0.35s ease', paddingBottom: 48 }}>
-      <Hero media={trending} />
+    <div className="mx-auto flex max-w-6xl flex-col gap-10">
+      {!homeError && <HeroBanner media={hero} />}
 
-      {apiError && <ApiOfflineBanner />}
-
-      {/* 1. Continuar assistindo */}
-      {watching.length > 0 && (
-        <Carousel title="Continuar Assistindo" icon={Play} count={watching.length}>
-          {watching.map(item => <ContinueCard key={item.id} item={item} />)}
-        </Carousel>
+      {watchingEntries.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="h-4 w-1 rounded-full bg-gradient-to-b from-purple to-blue" />
+            <h2 className="text-lg font-bold italic tracking-tight text-[var(--text)]">Continuar assistindo</h2>
+          </div>
+          <div className="scrollbar-none flex gap-3 overflow-x-auto scroll-smooth pb-1">
+            {watchingEntries.map(entry => (
+              <div key={entry.id} className="shrink-0">
+                <ContinueWatchingCard
+                  entry={entry}
+                  advancing={advancingId === entry.media_items.id}
+                  onAdvance={() => handleAdvance(entry)}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
-      {/* 2. Em Alta */}
-      {trending.length > 0 && (
-        <Carousel title="Em Alta" icon={Flame} count={trending.length}>
-          {trending.map(m => <NCard key={m.id} media={m} />)}
-        </Carousel>
+      {recommended?.length > 0 && (
+        <MediaRow title="Recomendado pra você" items={recommended} listMap={listMap} onEntryChange={handleEntryChange} />
       )}
 
-      {/* 3. Temporada Atual */}
-      {seasonal.length > 0 && (
-        <Carousel title="Temporada Atual" icon={Tv} count={seasonal.length}>
-          {seasonal.map(m => <NCard key={m.id} media={m} />)}
-        </Carousel>
+      {homeError && (
+        <ErrorState
+          message="Não deu para carregar os destaques agora — a AniList pode estar fora do ar."
+          onRetry={() => setReloadKey(k => k + 1)}
+        />
       )}
 
-      {/* 4. Recomendado para você */}
-      {recItems.length > 0 && (
-        <Carousel title={`Recomendado — ${recGenre}`} icon={Sparkles} count={recItems.length}>
-          {recItems.map(m => <NCard key={m.id} media={m} />)}
-        </Carousel>
+      {!homeError && !homeData && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="aspect-[2/3] animate-pulse rounded-lg bg-[var(--bg-card)]" />
+          ))}
+        </div>
+      )}
+
+      {homeData?.topAnime?.media?.length > 0 && (
+        <MediaRow title="Top 10 da semana" items={homeData.topAnime.media.slice(0, 10)} ranked listMap={listMap} onEntryChange={handleEntryChange} />
+      )}
+
+      {homeData?.trending?.media?.length > 0 && (
+        <MediaRow title="Em alta agora" items={homeData.trending.media} listMap={listMap} onEntryChange={handleEntryChange} />
+      )}
+
+      {GENRE_LABELS.map(([key, label, aniListGenre]) => (
+        genreRows?.[key]?.media?.length > 0 && (
+          <MediaRow
+            key={key}
+            title={label}
+            items={genreRows[key].media}
+            listMap={listMap}
+            onEntryChange={handleEntryChange}
+            seeAllHref={`/buscar?genre=${encodeURIComponent(aniListGenre)}&type=ANIME`}
+          />
+        )
+      ))}
+
+      {homeData?.topManga?.media?.length > 0 && (
+        <MediaRow title="Mangás em alta" items={homeData.topManga.media} listMap={listMap} onEntryChange={handleEntryChange} />
       )}
     </div>
   );

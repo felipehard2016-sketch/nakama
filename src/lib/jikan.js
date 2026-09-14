@@ -1,61 +1,65 @@
-/* ─────────────────────────────────────────────────────────────
-   jikan.js — MyAnimeList não-oficial via api.jikan.moe/v4
-   • Cache 10 min
-   • Rate-limit friendly (Jikan permite ~3 req/s)
-   • Nunca lança erro fatal — retorna null em caso de falha
-──────────────────────────────────────────────────────────── */
-const JIKAN_URL = 'https://api.jikan.moe/v4';
-const _cache    = new Map();
-const TTL       = 10 * 60 * 1000;
+/*
+ * Jikan (api.jikan.moe) — API não-oficial do MyAnimeList, gratuita e
+ * sem chave. Usada só pra completar dado de episódio que a AniList não
+ * tem: numeração/título mais confiável (mal_id já É o número do
+ * episódio, sem precisar adivinhar por regex) e sinopse por episódio
+ * (sob demanda, quando o usuário abre um episódio específico).
+ *
+ * Limite de uso público: ~3 req/s, ~60/min — por isso a lista pagina
+ * com uma pequena pausa entre chamadas, e a sinopse só é buscada
+ * quando o usuário pede (não em lote pra todos os episódios).
+ */
+const BASE = 'https://api.jikan.moe/v4';
+const listCache = new Map();   // malId -> Promise<episódios>
+const detailCache = new Map(); // `${malId}:${ep}` -> Promise<sinopse>
 
-async function jikanGet(path) {
-  const hit = _cache.get(path);
-  if (hit && Date.now() - hit.ts < TTL) return hit.data;
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-  try {
-    const res = await fetch(`${JIKAN_URL}${path}`);
-    if (res.status === 429) { console.warn('[Jikan] rate limit'); return null; }
-    if (!res.ok) return null;
-    const json = await res.json();
-    _cache.set(path, { data: json, ts: Date.now() });
-    return json;
-  } catch (err) {
-    console.warn('[Jikan] fetch error:', err.message);
-    return null;
-  }
+async function fetchJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Jikan ${res.status}`);
+  return res.json();
 }
 
-/* ── Busca MAL ID a partir de um título ── */
-export async function searchJikanByTitle(title, type = 'anime') {
-  const data = await jikanGet(`/${type}?q=${encodeURIComponent(title)}&limit=5&sfw=true`);
-  return data?.data || [];
+/** Lista de episódios (número, título, data de exibição) via MAL. */
+export async function getEpisodeList(malId) {
+  if (!malId) return [];
+  if (listCache.has(malId)) return listCache.get(malId);
+
+  const promise = (async () => {
+    const episodes = [];
+    let page = 1;
+    let hasNext = true;
+    while (hasNext && page <= 15) { // teto de segurança (~1500 eps)
+      try {
+        const json = await fetchJson(`${BASE}/anime/${malId}/episodes?page=${page}`);
+        for (const ep of json.data || []) {
+          episodes.push({ number: ep.mal_id, title: ep.title, aired: ep.aired, filler: ep.filler });
+        }
+        hasNext = !!json.pagination?.has_next_page;
+        page += 1;
+        if (hasNext) await wait(400); // respeita o rate limit entre páginas
+      } catch {
+        break; // Jikan fora do ar ou anime sem episódios listados — degrada silenciosamente
+      }
+    }
+    return episodes;
+  })();
+
+  listCache.set(malId, promise);
+  return promise;
 }
 
-/* ── Dados completos (inclui trailer, themes, staff, relations) ── */
-export async function getJikanFull(malId) {
-  const data = await jikanGet(`/anime/${malId}/full`);
-  return data?.data || null;
-}
+/** Sinopse de um episódio específico — buscada sob demanda (1 chamada por clique). */
+export async function getEpisodeSynopsis(malId, episodeNumber) {
+  if (!malId || !episodeNumber) return null;
+  const key = `${malId}:${episodeNumber}`;
+  if (detailCache.has(key)) return detailCache.get(key);
 
-/* ── Temas (OP / ED) ── */
-export async function getJikanThemes(malId) {
-  const data = await jikanGet(`/anime/${malId}/themes`);
-  return data?.data || null; // { openings: string[], endings: string[] }
-}
+  const promise = fetchJson(`${BASE}/anime/${malId}/episodes/${episodeNumber}`)
+    .then(json => json.data?.synopsis || null)
+    .catch(() => null);
 
-/* ── Staff (diretor, compositor…) ── */
-export async function getJikanStaff(malId) {
-  const data = await jikanGet(`/anime/${malId}/staff`);
-  return data?.data || [];
-}
-
-/* ── Notícias ── */
-export async function getJikanNews(malId, page = 1) {
-  const data = await jikanGet(`/anime/${malId}/news?page=${page}`);
-  return data?.data || [];
-}
-
-/* ── Invalidar cache de um path ── */
-export function invalidateJikanCache(path) {
-  _cache.delete(path);
+  detailCache.set(key, promise);
+  return promise;
 }

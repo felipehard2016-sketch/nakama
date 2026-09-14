@@ -102,6 +102,7 @@ export const HOME_BATCH_QUERY = `
     trending: Page(page: 1, perPage: 20) {
       media(sort: TRENDING_DESC, type: ANIME, isAdult: false) {
         id
+        type
         title { romaji english }
         coverImage { large extraLarge color }
         bannerImage
@@ -113,11 +114,13 @@ export const HOME_BATCH_QUERY = `
         seasonYear
         format
         description(asHtml: false)
+        nextAiringEpisode { airingAt episode timeUntilAiring }
       }
     }
     seasonal: Page(page: 1, perPage: 20) {
       media(season: $season, seasonYear: $year, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
         id
+        type
         title { romaji english }
         coverImage { large extraLarge color }
         bannerImage
@@ -126,29 +129,154 @@ export const HOME_BATCH_QUERY = `
         status
         genres
         format
-        nextAiringEpisode { airingAt episode }
+        nextAiringEpisode { airingAt episode timeUntilAiring }
       }
     }
     topAnime: Page(page: 1, perPage: 10) {
       media(sort: SCORE_DESC, type: ANIME, isAdult: false) {
         id
+        type
         title { romaji english }
         coverImage { large extraLarge color }
         averageScore
         format
         episodes
         status
+        genres
+        nextAiringEpisode { airingAt episode timeUntilAiring }
       }
     }
     topManga: Page(page: 1, perPage: 10) {
       media(sort: SCORE_DESC, type: MANGA, isAdult: false) {
         id
+        type
         title { romaji english }
         coverImage { large extraLarge color }
         averageScore
         format
         chapters
         status
+        genres
+      }
+    }
+  }
+`;
+
+/* ── Fileiras por gênero da Home, tudo numa única requisição ── */
+const GENRE_ROW_FIELDS = `
+  id
+  type
+  title { romaji english }
+  coverImage { large extraLarge color }
+  averageScore
+  format
+  episodes
+  status
+  genres
+  nextAiringEpisode { airingAt episode timeUntilAiring }
+`;
+export const HOME_GENRE_ROWS_QUERY = `
+  query HomeGenreRows {
+    action: Page(page: 1, perPage: 15) {
+      media(genre: "Action", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+    romance: Page(page: 1, perPage: 15) {
+      media(genre: "Romance", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+    comedy: Page(page: 1, perPage: 15) {
+      media(genre: "Comedy", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+    fantasy: Page(page: 1, perPage: 15) {
+      media(genre: "Fantasy", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+    drama: Page(page: 1, perPage: 15) {
+      media(genre: "Drama", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+    sliceOfLife: Page(page: 1, perPage: 15) {
+      media(genre: "Slice of Life", sort: POPULARITY_DESC, type: ANIME, isAdult: false) { ${GENRE_ROW_FIELDS} }
+    }
+  }
+`;
+
+/**
+ * Recomendações simples: gêneros favoritos do usuário (calculado no
+ * client a partir da própria lista, ver Home.jsx) + nota alta da
+ * comunidade. `genre_in` aceita vários gêneros de uma vez (OR entre
+ * eles) — uma chamada só, não uma por gênero.
+ */
+/**
+ * Lista pública de um usuário da AniList — não precisa de OAuth (só dá
+ * pra ler lista PRIVADA com login da própria conta, que é uma decisão
+ * separada, registrada na conversa). score(format: POINT_10) normaliza
+ * a nota pro nosso 0-10 independente do sistema de pontuação que o
+ * usuário usa lá (AniList deixa POINT_100, POINT_5 etc. — sem forçar o
+ * formato aqui, o valor bruto viria em escalas diferentes).
+ */
+export const ANILIST_LIST_COLLECTION = `
+  query ($userName: String, $type: MediaType) {
+    MediaListCollection(userName: $userName, type: $type) {
+      lists {
+        entries {
+          status
+          progress
+          score(format: POINT_10)
+          media {
+            id
+            type
+            title { romaji english }
+            coverImage { large }
+            episodes
+            chapters
+            genres
+            format
+            status
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Resolve ids do MyAnimeList (do export XML) pro id interno da AniList
+ * — em lote (idMal_in), não um por um, senão importar uma lista de 300
+ * títulos vira 300 chamadas e esbarra no rate limit da AniList. `type`
+ * é obrigatório aqui: MAL numera anime e mangá em espaços separados, um
+ * mesmo número pode ser um anime E um mangá diferentes.
+ */
+export const MAL_ID_LOOKUP = `
+  query ($malIds: [Int], $type: MediaType) {
+    Page(perPage: 50) {
+      media(idMal_in: $malIds, type: $type) {
+        id
+        idMal
+        type
+        title { romaji english }
+        coverImage { large }
+        episodes
+        chapters
+        genres
+        format
+        status
+      }
+    }
+  }
+`;
+
+export const RECOMMENDATION_QUERY = `
+  query ($genres: [String], $page: Int, $perPage: Int) {
+    Page(page: $page, perPage: $perPage) {
+      media(genre_in: $genres, type: ANIME, sort: SCORE_DESC, averageScore_greater: 72, isAdult: false) {
+        id
+        type
+        title { romaji english }
+        coverImage { large extraLarge color }
+        averageScore
+        format
+        episodes
+        status
+        genres
+        nextAiringEpisode { airingAt episode timeUntilAiring }
       }
     }
   }
@@ -178,18 +306,19 @@ export const TRENDING_ANIME = `
 export const SEARCH_MEDIA = `
   query (
     $search: String, $type: MediaType, $genre: String, $tag: String,
-    $status: MediaStatus, $year: Int, $minScore: Int, $country: CountryCode,
+    $status: MediaStatus, $year: Int, $format: MediaFormat, $minScore: Int, $country: CountryCode,
     $sort: [MediaSort], $page: Int, $perPage: Int
   ) {
     Page(page: $page, perPage: $perPage) {
       pageInfo { total hasNextPage currentPage }
       media(
         search: $search, type: $type, genre: $genre, tag: $tag,
-        status: $status, seasonYear: $year,
+        status: $status, seasonYear: $year, format: $format,
         averageScore_greater: $minScore, countryOfOrigin: $country,
         sort: $sort, isAdult: false
       ) {
         id
+        type
         title { romaji english }
         coverImage { large extraLarge color }
         bannerImage
@@ -202,6 +331,7 @@ export const SEARCH_MEDIA = `
         season
         seasonYear
         description(asHtml: false)
+        nextAiringEpisode { airingAt episode timeUntilAiring }
       }
     }
   }
@@ -212,6 +342,7 @@ export const MEDIA_DETAILS = `
     Media(id: $id) {
       id
       idMal
+      type
       title { romaji english native }
       coverImage { large extraLarge color }
       bannerImage
@@ -239,10 +370,17 @@ export const MEDIA_DETAILS = `
           voiceActors(language: JAPANESE) { id name { full } image { large } }
         }
       }
+      staff(sort: RELEVANCE, perPage: 8) {
+        edges {
+          role
+          node { id name { full } image { large } }
+        }
+      }
       recommendations(sort: RATING_DESC, perPage: 12) {
         nodes {
           mediaRecommendation {
             id
+            type
             title { romaji english }
             coverImage { large extraLarge color }
             averageScore
@@ -250,6 +388,8 @@ export const MEDIA_DETAILS = `
             episodes
             chapters
             seasonYear
+            status
+            nextAiringEpisode { airingAt episode timeUntilAiring }
           }
         }
       }
@@ -323,6 +463,21 @@ export const TOP_MANGA = `
         format
         chapters
         status
+      }
+    }
+  }
+`;
+
+/** Calendário: próximo episódio dos animes indicados (usado com a lista pessoal do usuário). */
+export const CALENDAR_SCHEDULE = `
+  query ($ids: [Int]) {
+    Page(perPage: 50) {
+      media(id_in: $ids, type: ANIME) {
+        id
+        title { romaji english }
+        coverImage { large }
+        episodes
+        nextAiringEpisode { airingAt episode }
       }
     }
   }
@@ -442,10 +597,12 @@ export const CHARACTER_DETAILS = `
       favourites
       media(page: 1, perPage: 20, sort: POPULARITY_DESC) {
         edges {
+          characterRole
           node {
             id
             title { romaji english }
-            coverImage { large }
+            coverImage { large color }
+            bannerImage
             type
             format
           }

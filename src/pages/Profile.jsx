@@ -1,673 +1,269 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { LogOut, Flame, Trophy, BarChart2, Upload, Download, Copy, Check, Globe } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getAllMedia } from '../lib/storage';
-import { getUserPersonality, saveUserPersonality } from '../lib/personality';
-import {
-  Trophy, Target, Tv, BookOpen,
-  Clock, Star, Heart, CheckCircle2, Zap,
-  Camera, Sparkles, ChevronDown, Save, Edit2,
-} from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { getStreak } from '../lib/streaks';
+import { labelForLevel } from '../lib/leveling';
+import { importFromAniList, importFromMalXml } from '../lib/importList';
+import { useTitle } from '../hooks/useTitle';
 
-/* ════════════════════════════════════════
-   DADOS DE PERSONALIDADE
-════════════════════════════════════════ */
-const MBTI_TYPES = [
-  'INTJ','INTP','ENTJ','ENTP',
-  'INFJ','INFP','ENFJ','ENFP',
-  'ISTJ','ISFJ','ESTJ','ESFJ',
-  'ISTP','ISFP','ESTP','ESFP',
-];
-
-const MBTI_DESC = {
-  INTJ:'Estrategista', INTP:'Lógico',      ENTJ:'Comandante',   ENTP:'Debatedor',
-  INFJ:'Advogado',     INFP:'Mediador',     ENFJ:'Protagonista', ENFP:'Ativista',
-  ISTJ:'Logístico',    ISFJ:'Defensor',     ESTJ:'Executivo',    ESFJ:'Cônsul',
-  ISTP:'Virtuoso',     ISFP:'Aventureiro',  ESTP:'Empreendedor', ESFP:'Animador',
-};
-
-const ZODIAC_SIGNS = [
-  '♈ Áries','♉ Touro','♊ Gêmeos','♋ Câncer','♌ Leão','♍ Virgem',
-  '♎ Libra','♏ Escorpião','♐ Sagitário','♑ Capricórnio','♒ Aquário','♓ Peixes',
-];
-
-/* ════════════════════════════════════════
-   SISTEMA DE NÍVEL
-   10 eps = 1 XP  |  100 XP = 1 nível
-════════════════════════════════════════ */
-const LEVEL_NAMES = [
-  '', 'Iniciante', 'Aprendiz', 'Explorador', 'Veterano',
-  'Especialista', 'Mestre', 'Grão-Mestre', 'Lendário',
-  'Imortal', 'Transcendente',
-];
-
-function calcLevel(totalEps) {
-  const xp       = Math.floor(totalEps / 10);
-  const level    = Math.floor(xp / 100) + 1;
-  const xpInLv   = xp % 100;
-  const xpToNext = 100 - xpInLv;
-  const name     = LEVEL_NAMES[Math.min(level, LEVEL_NAMES.length - 1)];
-  return { level, xp, xpInLv, xpToNext, pct: xpInLv, name };
-}
-
-/* ════════════════════════════════════════
-   CONQUISTAS
-════════════════════════════════════════ */
-const ACHIEVEMENTS_DEF = [
-  {
-    id: 'first_step', icon: '🎬', title: 'Primeiro Passo',
-    desc: 'Adicione o primeiro anime à lista',
-    check: ({ animeCount }) => animeCount >= 1,
-  },
-  {
-    id: 'marathoner', icon: '🔥', title: 'Maratonista',
-    desc: 'Assista 500 episódios',
-    check: ({ totalEps }) => totalEps >= 500,
-    progress: ({ totalEps }) => ({ current: Math.min(500, totalEps), total: 500 }),
-  },
-  {
-    id: 'centurion', icon: '💯', title: 'Centurião',
-    desc: 'Complete 100 animes',
-    check: ({ completedCount }) => completedCount >= 100,
-    progress: ({ completedCount }) => ({ current: Math.min(100, completedCount), total: 100 }),
-  },
-  {
-    id: 'no_social', icon: '⚡', title: 'Sem Vida Social',
-    desc: 'Assista 1000 episódios',
-    check: ({ totalEps }) => totalEps >= 1000,
-    progress: ({ totalEps }) => ({ current: Math.min(1000, totalEps), total: 1000 }),
-  },
-  {
-    id: 'legend', icon: '👑', title: 'Lenda do Anime',
-    desc: 'Assista 5000 episódios',
-    check: ({ totalEps }) => totalEps >= 5000,
-    progress: ({ totalEps }) => ({ current: Math.min(5000, totalEps), total: 5000 }),
-  },
-  {
-    id: 'manga_reader', icon: '📚', title: 'Leitor Dedicado',
-    desc: 'Leia 1000 capítulos de mangá',
-    check: ({ mangaChapters }) => mangaChapters >= 1000,
-    progress: ({ mangaChapters }) => ({ current: Math.min(1000, mangaChapters), total: 1000 }),
-  },
-  {
-    id: 'hardcore_fan', icon: '❤️', title: 'Fã Hardcore',
-    desc: 'Favorite 20 títulos',
-    check: ({ favCount }) => favCount >= 20,
-    progress: ({ favCount }) => ({ current: Math.min(20, favCount), total: 20 }),
-  },
-  {
-    id: 'collector', icon: '🏆', title: 'Colecionador',
-    desc: 'Tenha 50 títulos na lista',
-    check: ({ totalCount }) => totalCount >= 50,
-    progress: ({ totalCount }) => ({ current: Math.min(50, totalCount), total: 50 }),
-  },
-  {
-    id: 'perfectionist', icon: '✅', title: 'Perfeccionista',
-    desc: 'Complete 30 títulos',
-    check: ({ completedCount }) => completedCount >= 30,
-    progress: ({ completedCount }) => ({ current: Math.min(30, completedCount), total: 30 }),
-  },
-  {
-    id: 'otaku_roots', icon: '🌟', title: 'Otaku Raiz',
-    desc: 'Complete 50 títulos',
-    check: ({ completedCount }) => completedCount >= 50,
-    progress: ({ completedCount }) => ({ current: Math.min(50, completedCount), total: 50 }),
-  },
-  {
-    id: 'critic', icon: '🎯', title: 'Crítico',
-    desc: 'Rastreie 20 títulos diferentes',
-    check: ({ totalCount }) => totalCount >= 20,
-    progress: ({ totalCount }) => ({ current: Math.min(20, totalCount), total: 20 }),
-  },
-  {
-    id: 'no_sleep', icon: '🕐', title: 'Sem Dormir',
-    desc: '100 horas assistidas',
-    check: ({ totalHours }) => totalHours >= 100,
-    progress: ({ totalHours }) => ({ current: Math.min(100, totalHours), total: 100 }),
-  },
-  {
-    id: 'no_life', icon: '💀', title: 'Sem Vida',
-    desc: '500 horas assistidas',
-    check: ({ totalHours }) => totalHours >= 500,
-    progress: ({ totalHours }) => ({ current: Math.min(500, totalHours), total: 500 }),
-  },
-  {
-    id: 'god_level', icon: '🐉', title: 'Nível Deus',
-    desc: 'Chegue ao nível 50',
-    check: ({ levelNum }) => levelNum >= 50,
-    progress: ({ levelNum }) => ({ current: Math.min(50, levelNum), total: 50 }),
-  },
-];
-
-/* ════════════════════════════════════════
-   COMPONENTES
-════════════════════════════════════════ */
-function AchievementCard({ def, stats }) {
-  const unlocked = def.check(stats);
-  const prog     = def.progress?.(stats);
-  const pct      = prog ? Math.round((prog.current / prog.total) * 100) : 0;
-
+/** Barra de progresso simples (não a segmentada da identidade HUD — aqui é um andamento contínuo de verdade, não um "quanto falta pra próximo episódio"). */
+function ImportProgress({ label, done, total }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
-    <div style={{
-      background: unlocked ? 'rgba(124,58,237,0.09)' : 'var(--bg-card)',
-      border: `1px solid ${unlocked ? 'rgba(124,58,237,0.4)' : 'var(--border)'}`,
-      borderRadius: 14, padding: '16px 18px',
-      transition: 'transform 0.18s, box-shadow 0.18s',
-    }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.3)'; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        {/* Ícone */}
-        <div style={{
-          width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-          background: unlocked ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.03)',
-          border: `1px solid ${unlocked ? 'rgba(124,58,237,0.45)' : 'rgba(255,255,255,0.06)'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: unlocked ? 22 : 18,
-          filter: unlocked ? 'none' : 'grayscale(1)',
-          opacity: unlocked ? 1 : 0.5,
-        }}>
-          {unlocked ? def.icon : '🔒'}
-        </div>
-
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-            <p style={{
-              fontSize: 13.5, fontWeight: 700,
-              color: unlocked ? 'var(--text)' : 'var(--text-muted)',
-            }}>{def.title}</p>
-            {unlocked && <CheckCircle2 size={13} color="#4ade80" />}
-          </div>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>{def.desc}</p>
-        </div>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between font-mono text-[11px] text-[var(--text-muted)]">
+        <span>{label}</span>
+        <span>{done} / {total}</span>
       </div>
-
-      {/* Barra de progresso — sempre visível quando há total */}
-      {prog && (
-        <div style={{ marginTop: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-            <span style={{ fontSize: 11, color: unlocked ? 'var(--purple-light)' : 'var(--text-muted)' }}>
-              {prog.current.toLocaleString()} / {prog.total.toLocaleString()}
-            </span>
-            <span style={{ fontSize: 11, color: unlocked ? 'var(--purple-light)' : 'var(--text-muted)' }}>
-              {pct}%
-            </span>
-          </div>
-          <div style={{ height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 2 }}>
-            <div style={{
-              height: '100%', width: `${pct}%`, borderRadius: 2,
-              background: unlocked
-                ? 'linear-gradient(90deg,var(--purple),var(--blue-light))'
-                : 'rgba(255,255,255,0.15)',
-            }} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function GoalCard({ icon: Icon, label, current, goal, unit }) {
-  const pct  = Math.min(100, Math.round((current / goal) * 100));
-  const done = current >= goal;
-  return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: `1px solid ${done ? 'rgba(74,222,128,0.3)' : 'var(--border)'}`,
-      borderRadius: 14, padding: '18px 20px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10,
-          background: done ? 'rgba(74,222,128,0.12)' : 'rgba(124,58,237,0.1)',
-          border: `1px solid ${done ? 'rgba(74,222,128,0.3)' : 'rgba(124,58,237,0.25)'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Icon size={17} color={done ? '#4ade80' : 'var(--purple-light)'} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 13, fontWeight: 600 }}>{label}</p>
-          <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>Meta: {goal} {unit}</p>
-        </div>
-        {done && <CheckCircle2 size={18} color="#4ade80" />}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'flex-end' }}>
-        <span style={{ fontSize: 24, fontWeight: 800, color: done ? '#4ade80' : 'var(--text)' }}>
-          {current.toLocaleString()}
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', paddingBottom: 3 }}>{pct}%</span>
-      </div>
-      <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-        <div style={{
-          height: '100%', width: `${pct}%`, borderRadius: 3, transition: 'width 0.8s ease',
-          background: done
-            ? 'linear-gradient(90deg,#4ade80,#22d3ee)'
-            : 'linear-gradient(90deg,var(--purple),var(--blue))',
-        }} />
+      <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
+        <div className="h-full rounded-full bg-gradient-to-r from-purple to-blue transition-[width]" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
 }
-
-/* ════════════════════════════════════════
-   PÁGINA
-════════════════════════════════════════ */
-const JOINED_KEY = 'nakama_joined_at';
 
 export default function Profile() {
-  const { displayName, updateDisplayName } = useAuth();
+  useTitle('Perfil');
+  const { user, profile, signOut, updateProfile } = useAuth();
+  const { showToast } = useToast();
 
-  /* Registra data de início na primeira visita */
-  useEffect(() => {
-    if (!localStorage.getItem(JOINED_KEY)) {
-      localStorage.setItem(JOINED_KEY, new Date().toISOString());
-    }
-  }, []);
+  const [username, setUsername] = useState(profile?.username || '');
+  const [streak, setStreak]     = useState(null);
+  const [saving, setSaving]     = useState(false);
 
-  /* ── Edição de nome ── */
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput,   setNameInput]   = useState(displayName);
+  const [aniListUsername, setAniListUsername] = useState('');
+  const [importing, setImporting] = useState(null); // null | 'anilist' | 'mal'
+  const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
+  const fileInputRef = useRef(null);
 
-  const handleSaveName = () => {
-    updateDisplayName(nameInput);
-    setEditingName(false);
+  const [togglingPublic, setTogglingPublic] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  useEffect(() => setUsername(profile?.username || ''), [profile]);
+  useEffect(() => { if (user) getStreak(user.id).then(setStreak); }, [user]);
+
+  const handleSaveUsername = async () => {
+    setSaving(true);
+    const { error } = await updateProfile({ username: username.trim() });
+    setSaving(false);
+    showToast(error ? 'Não deu para salvar.' : 'Nome atualizado!', error ? 'error' : 'success');
   };
 
-  /* ── Personalidade ── */
-  const [personality, setPersonality] = useState({
-    mbti: '', enneagram: '', zodiac: '',
-    fav_anime: '', fav_manga: '', bio: '',
-  });
-  const [savingPersonality, setSavingPersonality] = useState(false);
-  const [personalitySaved,  setPersonalitySaved]  = useState(false);
-
-  useEffect(() => {
-    getUserPersonality(null).then(data => {
-      if (data) setPersonality({
-        mbti:      data.mbti      || '',
-        enneagram: data.enneagram || '',
-        zodiac:    data.zodiac    || '',
-        fav_anime: data.fav_anime || '',
-        fav_manga: data.fav_manga || '',
-        bio:       data.bio       || '',
-      });
-    });
-  }, []);
-
-  const handleSavePersonality = async () => {
-    setSavingPersonality(true);
+  const handleImportAniList = async () => {
+    if (!aniListUsername.trim() || importing) return;
+    setImporting('anilist');
+    setImportProgress({ done: 0, total: 0 });
     try {
-      await saveUserPersonality(null, personality);
-      setPersonalitySaved(true);
-      setTimeout(() => setPersonalitySaved(false), 2500);
+      const { imported, total } = await importFromAniList(
+        user.id, aniListUsername.trim(),
+        (done, t) => setImportProgress({ done, total: t }),
+      );
+      if (total === 0) showToast('Não achei essa lista — confira o nome de usuário (e se ela é pública).', 'error');
+      else showToast(`Importados ${imported} de ${total} itens da AniList.`, imported > 0 ? 'success' : 'error');
+    } catch {
+      showToast('Não deu para importar agora. Tenta de novo em instantes.', 'error');
     } finally {
-      setSavingPersonality(false);
+      setImporting(null);
     }
   };
 
-  /* ── Dados da lista ── */
-  const all = useMemo(() => getAllMedia(), []);
+  const handleImportMalFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite escolher o mesmo arquivo de novo depois
+    if (!file || importing) return;
+    setImporting('mal');
+    setImportProgress({ done: 0, total: 0 });
+    try {
+      const text = await file.text();
+      const { imported, total } = await importFromMalXml(
+        user.id, text,
+        (done, t) => setImportProgress({ done, total: t }),
+      );
+      if (total === 0) showToast('Não achei nenhum item nesse arquivo — confira se é o export de anime/mangá do MAL.', 'error');
+      else showToast(`Importados ${imported} de ${total} itens do MAL.`, imported > 0 ? 'success' : 'error');
+    } catch {
+      showToast('Não deu para ler esse arquivo.', 'error');
+    } finally {
+      setImporting(null);
+    }
+  };
 
-  const stats = useMemo(() => {
-    const isManga = m => ['MANGA', 'ONE_SHOT', 'NOVEL'].includes(m.format);
+  const handleTogglePublicList = async () => {
+    setTogglingPublic(true);
+    const nextValue = !profile?.public_list;
+    const { error } = await updateProfile({ public_list: nextValue });
+    setTogglingPublic(false);
+    showToast(
+      error ? 'Não deu para salvar.' : (nextValue ? 'Lista pública ativada!' : 'Lista voltou a ser privada.'),
+      error ? 'error' : 'success',
+    );
+  };
 
-    const animeCount     = all.filter(m => !isManga(m) && m.listStatus).length;
-    const mangaCount     = all.filter(m =>  isManga(m) && m.listStatus).length;
-    const completedCount = all.filter(m => m.listStatus === 'COMPLETED').length;
-    const favCount       = all.filter(m => m.favorited).length;
-    const totalCount     = all.filter(m => m.listStatus || m.favorited).length;
-    const totalEps       = all.reduce((a, m) => a + (m.progress || 0), 0);
+  const publicUrl = profile?.username ? `${window.location.origin}/u/${profile.username}` : '';
 
-    const totalMinutes = all.reduce((acc, m) => {
-      if (isManga(m) || !m.progress) return acc;
-      return acc + (m.progress * (m.duration || 24));
-    }, 0);
-    const totalHours = Math.round(totalMinutes / 60);
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      showToast('Não deu para copiar — selecione e copie manualmente.', 'error');
+    }
+  };
 
-    const mangaChapters = all
-      .filter(m => isManga(m))
-      .reduce((a, m) => a + (m.progress || 0), 0);
-
-    const levelNum = calcLevel(totalEps).level;
-
-    return { animeCount, mangaCount, completedCount, favCount, totalCount,
-             totalEps, totalHours, mangaChapters, levelNum };
-  }, [all]);
-
-  const lv = useMemo(() => calcLevel(stats.totalEps), [stats.totalEps]);
-  const unlockedCount = ACHIEVEMENTS_DEF.filter(d => d.check(stats)).length;
-
-  const thisYear  = new Date().getFullYear();
-  const addedYear = all.filter(m => m.addedAt && new Date(m.addedAt).getFullYear() === thisYear);
-  const animeGoal = addedYear.filter(m => !['MANGA','ONE_SHOT','NOVEL'].includes(m.format)).length;
-  const mangaGoal = addedYear.filter(m =>  ['MANGA','ONE_SHOT','NOVEL'].includes(m.format)).length;
-
-  const cleanName = (displayName || '').replace(/[^a-zA-ZÀ-ÿ\s]/g, '').trim() || 'U';
-  const initials  = cleanName.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-
-  const joinedRaw = localStorage.getItem(JOINED_KEY);
-  const memberSince = joinedRaw
-    ? new Date(joinedRaw).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-    : 'Recentemente';
-
-  /* helper para selects */
-  const SelectField = ({ label, value, onChange, children }) => (
-    <div>
-      <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 7 }}>
-        {label}
-      </label>
-      <div style={{ position: 'relative' }}>
-        <select
-          value={value}
-          onChange={onChange}
-          style={{
-            width: '100%', appearance: 'none',
-            background: 'var(--bg)', border: '1px solid var(--border)',
-            borderRadius: 9, padding: '10px 34px 10px 13px',
-            color: value ? 'var(--text)' : 'var(--text-muted)',
-            fontSize: 13.5, cursor: 'pointer', outline: 'none',
-          }}
-        >
-          {children}
-        </select>
-        <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-      </div>
-    </div>
-  );
-
-  const TextField = ({ label, value, onChange, placeholder }) => (
-    <div>
-      <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 7 }}>
-        {label}
-      </label>
-      <input
-        type="text"
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        style={{
-          width: '100%', background: 'var(--bg)', border: '1px solid var(--border)',
-          borderRadius: 9, padding: '10px 13px',
-          color: 'var(--text)', fontSize: 13.5, outline: 'none',
-        }}
-        onFocus={e => e.target.style.borderColor = 'rgba(124,58,237,0.6)'}
-        onBlur={e => e.target.style.borderColor = 'var(--border)'}
-      />
-    </div>
-  );
+  const levelLabel = labelForLevel(profile?.level);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', animation: 'fadeIn 0.4s ease' }}>
-
-      {/* Banner */}
-      <div style={{ position: 'relative', height: 200 }}>
-        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#3b0764 0%,#1e1b4b 45%,#0c1445 100%)', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: -40, right: 120, width: 280, height: 280, borderRadius: '50%', background: 'rgba(124,58,237,0.2)', filter: 'blur(60px)' }} />
-            <div style={{ position: 'absolute', bottom: -30, left: 200, width: 200, height: 200, borderRadius: '50%', background: 'rgba(79,70,229,0.18)', filter: 'blur(50px)' }} />
-            <div style={{ position: 'absolute', top: 30, left: '40%', width: 160, height: 160, borderRadius: '50%', background: 'rgba(139,92,246,0.1)', filter: 'blur(40px)' }} />
-          </div>
+    <div className="mx-auto flex max-w-lg flex-col gap-6">
+      <div className="flex items-center gap-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple to-blue text-xl font-bold text-white">
+          {(profile?.username || user?.email || '?')[0].toUpperCase()}
         </div>
-
-        {/* Avatar */}
-        <div style={{ position: 'absolute', bottom: -52, left: 40, zIndex: 10 }}>
-          <div style={{
-            width: 104, height: 104, borderRadius: '50%',
-            border: '4px solid var(--bg)',
-            boxShadow: '0 0 0 2px var(--purple), 0 0 28px rgba(124,58,237,0.55)',
-            background: 'linear-gradient(135deg,var(--purple),#4f46e5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 36, fontWeight: 900, color: '#fff',
-          }}>
-            {initials}
-          </div>
+        <div>
+          <h1 className="text-xl font-bold text-[var(--text)]">{profile?.username || 'Usuário'}</h1>
+          <p className="text-sm text-[var(--text-muted)]">{user?.email}</p>
         </div>
       </div>
 
-      {/* Cabeçalho */}
-      <div style={{ padding: '0 32px', minHeight: 68 }}>
-        <div style={{
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
-          paddingLeft: 164,
-          paddingTop: 10,
-          paddingBottom: 20,
-        }}>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 text-center">
+          <Flame size={16} className="mx-auto mb-1 text-orange-400" />
+          <p className="text-lg font-bold text-[var(--text)]">{streak?.current_streak ?? 0}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">streak atual</p>
+        </div>
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 text-center">
+          <Trophy size={16} className="mx-auto mb-1 text-yellow-400" />
+          <p className="text-lg font-bold text-[var(--text)]">Nv. {profile?.level ?? 1}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">{levelLabel}</p>
+        </div>
+        <Link to="/stats" className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 text-center transition-colors hover:border-purple/40">
+          <BarChart2 size={16} className="mx-auto mb-1 text-blue-light" />
+          <p className="text-[11px] font-medium text-[var(--text)]">Ver stats</p>
+        </Link>
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
+        <label htmlFor="profile-username" className="text-xs text-[var(--text-muted)]">Nome de usuário</label>
+        <div className="flex gap-2">
+          <input
+            id="profile-username"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            className="flex-1 rounded-md border border-[var(--border)] bg-transparent px-3 py-2 text-sm text-[var(--text)] outline-none focus:border-purple"
+          />
+          <button
+            onClick={handleSaveUsername}
+            disabled={saving || username.trim() === profile?.username}
+            className="rounded-md bg-purple/20 px-4 text-sm font-medium text-[var(--text)] disabled:opacity-40"
+          >
+            Salvar
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            {editingName ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  value={nameInput}
-                  onChange={e => setNameInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false); }}
-                  autoFocus
-                  style={{
-                    fontSize: 22, fontWeight: 800, background: 'var(--bg-card)',
-                    border: '1px solid rgba(124,58,237,0.5)', borderRadius: 8,
-                    padding: '4px 10px', color: 'var(--text)', outline: 'none',
-                  }}
-                />
-                <button onClick={handleSaveName} style={{ background: 'var(--purple)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                  Salvar
-                </button>
-                <button onClick={() => setEditingName(false)} style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer' }}>
-                  Cancelar
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.2 }}>
-                  {cleanName || 'Usuário'}
-                </h1>
-                <button
-                  onClick={() => { setNameInput(displayName); setEditingName(true); }}
-                  title="Editar nome"
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6, transition: 'color 0.15s' }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'var(--purple-light)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                >
-                  <Edit2 size={15} />
-                </button>
-              </div>
-            )}
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-              Usando desde {memberSince}
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-[var(--text)]">
+              <Globe size={14} /> Perfil público
+            </h2>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+              Com isso ativado, qualquer pessoa com o link vê sua lista completa e suas estatísticas — sem precisar de login.
+              Nível, conquistas e streak já são sempre visíveis.
             </p>
           </div>
+          <button
+            role="switch"
+            aria-checked={!!profile?.public_list}
+            aria-label="Ativar lista pública"
+            onClick={handleTogglePublicList}
+            disabled={togglingPublic || !profile?.username}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
+              profile?.public_list ? 'bg-purple' : 'bg-white/10'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                profile?.public_list ? 'translate-x-[22px]' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
         </div>
-      </div>
 
-      {/* ══════════════════════════════════════
-          CORPO — duas colunas
-      ══════════════════════════════════════ */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 380px',
-        gap: 24,
-        padding: '0 32px 72px',
-        alignItems: 'start',
-      }}>
+        {!profile?.username && (
+          <p className="text-[11px] text-yellow-400/80">Defina um nome de usuário acima antes de ativar isso.</p>
+        )}
 
-        {/* ─────────────── COLUNA ESQUERDA ─────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-
-          {/* Nível + XP */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-              <div style={{
-                width: 52, height: 52, borderRadius: 15, flexShrink: 0,
-                background: 'linear-gradient(135deg,var(--purple),#4f46e5)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 18px rgba(124,58,237,0.45)',
-              }}>
-                <Zap size={24} color="#fff" />
-              </div>
-              <div>
-                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 2 }}>Nível {lv.level}</p>
-                <p style={{ fontSize: 21, fontWeight: 800, color: 'var(--purple-light)' }}>{lv.name}</p>
-              </div>
-              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                <p style={{ fontSize: 24, fontWeight: 800 }}>
-                  {lv.xp.toLocaleString()}
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 400 }}> XP</span>
-                </p>
-                <p style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>+{lv.xpToNext} XP para nível {lv.level + 1}</p>
-              </div>
-            </div>
-            <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', width: `${lv.pct}%`, borderRadius: 4,
-                background: 'linear-gradient(90deg,var(--purple),var(--blue))',
-                boxShadow: '0 0 10px rgba(124,58,237,0.5)', transition: 'width 0.8s ease',
-              }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 7 }}>
-              <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{lv.xpInLv} / 100 XP neste nível</span>
-              <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>1 XP = 10 episódios</span>
-            </div>
+        {profile?.public_list && profile?.username && (
+          <div className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-black/20 px-3 py-2">
+            <code className="flex-1 truncate text-xs text-[var(--text-secondary)]">{publicUrl}</code>
+            <button onClick={handleCopyLink} className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text)]" aria-label="Copiar link do perfil">
+              {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+            </button>
           </div>
+        )}
+      </div>
 
-          {/* Conquistas */}
-          <section>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 16 }}>
-              <Trophy size={18} color="var(--purple-light)" />
-              <h2 style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em' }}>Conquistas</h2>
-              <span style={{
-                fontSize: 11.5, fontWeight: 700,
-                background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.35)',
-                borderRadius: 20, padding: '2px 10px', color: 'var(--purple-light)',
-              }}>
-                {unlockedCount} / {ACHIEVEMENTS_DEF.length}
-              </span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 10 }}>
-              {ACHIEVEMENTS_DEF.map(def => (
-                <AchievementCard key={def.id} def={def} stats={stats} />
-              ))}
-            </div>
-          </section>
-
-          {/* Minha Personalidade */}
-          <section>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 16 }}>
-              <Sparkles size={18} color="var(--purple-light)" />
-              <h2 style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em' }}>Minha Personalidade</h2>
-            </div>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '26px 26px 22px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 16, marginBottom: 18 }}>
-
-                <SelectField label="MBTI" value={personality.mbti} onChange={e => setPersonality(p => ({ ...p, mbti: e.target.value }))}>
-                  <option value="">Selecionar...</option>
-                  {MBTI_TYPES.map(t => <option key={t} value={t}>{t} — {MBTI_DESC[t]}</option>)}
-                </SelectField>
-
-                <SelectField label="Eneagrama" value={personality.enneagram} onChange={e => setPersonality(p => ({ ...p, enneagram: e.target.value }))}>
-                  <option value="">Selecionar...</option>
-                  {[1,2,3,4,5,6,7,8,9].map(n => <option key={n} value={String(n)}>Tipo {n}</option>)}
-                </SelectField>
-
-                <SelectField label="Signo" value={personality.zodiac} onChange={e => setPersonality(p => ({ ...p, zodiac: e.target.value }))}>
-                  <option value="">Selecionar...</option>
-                  {ZODIAC_SIGNS.map(s => <option key={s} value={s}>{s}</option>)}
-                </SelectField>
-
-                <TextField label="Anime favorito de todos os tempos" value={personality.fav_anime}
-                  onChange={e => setPersonality(p => ({ ...p, fav_anime: e.target.value }))}
-                  placeholder="Ex: Fullmetal Alchemist: Brotherhood" />
-
-                <TextField label="Mangá favorito de todos os tempos" value={personality.fav_manga}
-                  onChange={e => setPersonality(p => ({ ...p, fav_manga: e.target.value }))}
-                  placeholder="Ex: Berserk" />
-              </div>
-
-              {/* Bio */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 7 }}>
-                  Frase / Bio pessoal
-                </label>
-                <textarea
-                  value={personality.bio}
-                  onChange={e => setPersonality(p => ({ ...p, bio: e.target.value }))}
-                  placeholder="Escreva algo sobre você..."
-                  rows={3}
-                  style={{
-                    width: '100%', background: 'var(--bg)', border: '1px solid var(--border)',
-                    borderRadius: 9, padding: '10px 13px',
-                    color: 'var(--text)', fontSize: 13.5, outline: 'none',
-                    resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6,
-                  }}
-                  onFocus={e => e.target.style.borderColor = 'rgba(124,58,237,0.6)'}
-                  onBlur={e => e.target.style.borderColor = 'var(--border)'}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={handleSavePersonality}
-                  disabled={savingPersonality}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '11px 24px',
-                    background: personalitySaved ? 'linear-gradient(135deg,#22c55e,#16a34a)' : 'linear-gradient(135deg,var(--purple),#4f46e5)',
-                    border: 'none', borderRadius: 10, color: '#fff',
-                    fontSize: 13.5, fontWeight: 700,
-                    cursor: savingPersonality ? 'not-allowed' : 'pointer',
-                    opacity: savingPersonality ? 0.7 : 1,
-                    transition: 'background 0.3s, opacity 0.2s',
-                    boxShadow: '0 4px 14px rgba(124,58,237,0.35)',
-                  }}
-                >
-                  {savingPersonality
-                    ? <><div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Salvando...</>
-                    : personalitySaved ? '✓ Salvo!' : <><Save size={15} />Salvar personalidade</>}
-                </button>
-              </div>
-            </div>
-          </section>
+      <div className="flex flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--text)]">Importar lista</h2>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+            Traga seu histórico de outro tracker. Itens já na sua lista atualizam status/progresso/nota.
+          </p>
         </div>
 
-        {/* ─────────────── COLUNA DIREITA ─────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="import-anilist-username" className="text-xs text-[var(--text-muted)]">
+            Usuário da AniList (lista precisa ser pública)
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="import-anilist-username"
+              value={aniListUsername}
+              onChange={e => setAniListUsername(e.target.value)}
+              placeholder="seu-usuario-na-anilist"
+              disabled={!!importing}
+              className="flex-1 rounded-md border border-[var(--border)] bg-transparent px-3 py-2 text-sm text-[var(--text)] outline-none placeholder:text-[var(--text-muted)] focus:border-purple disabled:opacity-50"
+            />
+            <button
+              onClick={handleImportAniList}
+              disabled={!!importing || !aniListUsername.trim()}
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-md bg-purple/20 px-3.5 text-sm font-medium text-[var(--text)] disabled:opacity-40"
+            >
+              <Download size={14} /> Importar
+            </button>
+          </div>
+        </div>
 
-          {/* Stats — grid 3×2 */}
-          <section>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-              {[
-                { icon: Tv,           label: 'Animes',     value: stats.animeCount,                       color: '#a78bfa' },
-                { icon: BookOpen,     label: 'Mangás',     value: stats.mangaCount,                       color: '#60a5fa' },
-                { icon: CheckCircle2, label: 'Completos',  value: stats.completedCount,                   color: '#4ade80' },
-                { icon: Star,         label: 'Episódios',  value: stats.totalEps.toLocaleString(),        color: '#fbbf24' },
-                { icon: Heart,        label: 'Favoritos',  value: stats.favCount,                         color: '#f87171' },
-                { icon: Clock,        label: 'Horas',      value: `${stats.totalHours.toLocaleString()}h`, color: '#fb923c' },
-              ].map(s => (
-                <div key={s.label} style={{
-                  background: 'var(--bg-card)', border: '1px solid var(--border)',
-                  borderRadius: 14, padding: '16px 14px',
-                  display: 'flex', flexDirection: 'column', gap: 8,
-                }}>
-                  <s.icon size={18} color={s.color} />
-                  <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{s.value}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-          </section>
+        {importing === 'anilist' && <ImportProgress label="Importando da AniList…" {...importProgress} />}
 
-          {/* Metas anuais */}
-          <section>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
-              <Target size={17} color="var(--purple-light)" />
-              <h2 style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em' }}>Metas de {thisYear}</h2>
+        <div className="border-t border-[var(--border)] pt-4">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-xs text-[var(--text-muted)]">Export XML do MyAnimeList</p>
+              <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">Um arquivo por vez — anime e mangá são exportados separados pelo próprio MAL.</p>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <GoalCard icon={Tv}       label={`Animes em ${thisYear}`}   current={animeGoal}        goal={12}  unit="animes"    />
-              <GoalCard icon={BookOpen} label={`Mangás em ${thisYear}`}   current={mangaGoal}        goal={6}   unit="mangás"    />
-              <GoalCard icon={Star}     label="Episódios assistidos"      current={stats.totalEps}   goal={365} unit="episódios" />
-              <GoalCard icon={Clock}    label="Horas assistidas"          current={stats.totalHours} goal={100} unit="horas"     />
-            </div>
-          </section>
-
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!!importing}
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-purple/20 px-3.5 py-2 text-xs font-medium text-[var(--text)] disabled:opacity-40"
+            >
+              <Upload size={13} /> Escolher arquivo
+            </button>
+            <input ref={fileInputRef} type="file" accept=".xml" onChange={handleImportMalFile} className="hidden" />
+          </div>
+          {importing === 'mal' && <div className="mt-3"><ImportProgress label="Importando do MAL…" {...importProgress} /></div>}
         </div>
       </div>
+
+      <button
+        onClick={signOut}
+        className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border)] py-2.5 text-sm text-[var(--text-secondary)] transition-colors hover:border-red-400/40 hover:text-red-400"
+      >
+        <LogOut size={15} /> Sair
+      </button>
     </div>
   );
 }
